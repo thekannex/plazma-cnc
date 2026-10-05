@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="en">
+
+	<head>
+		<meta charset="utf-8" />
+		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Plasma Kontrol - Çizim</title>
+		<meta name="description" content="" />
+		<meta name="keywords" content="" />
+		<meta name="author" content="" />
+		<meta name="version" content="" />
+		<!-- Mobile Redirect if screen is too small. -->
+		<meta name="metro4:init" content="true">
+
+		<script type="text/javascript">
+			if (screen.width <= 720) {
+				window.location = "mobile.html";
+			}
+		</script>
+		<link rel="stylesheet" type="text/css" href="lib/jquery/fontselect/styles/fontselect-bootstrap4.css" />
+		<link href="https://fonts.googleapis.com/css?family=Bowlby+One+SC" rel="stylesheet">
+		<link type="text/css" rel="stylesheet" media="all" href="css/main.css" />
+		<link type="text/css" rel="stylesheet" media="all" href="css/grpblock.css" />
+		<link type="text/css" rel="stylesheet" media="all" href="lib/jquery/jquery-ui.css" />
+		<link rel="stylesheet" href="lib/metro4/css/metro-all.css" />
+		<!-- <link rel="stylesheet" href="https://cdn.metroui.org.ua/v4/css/metro-all.min.css"> -->
+		<link type="text/css" rel="stylesheet" media="all" href="css/sidebarmenu.css" />
+		<link type="text/css" rel="stylesheet" media="all" href="css/iconlib.css" />
+		<link type="text/css" rel="stylesheet" media="all" href="css/image-checkbox.css" />
+		<link type="text/css" rel="stylesheet" media="all" href="css/splash.css" />
+
+		<link rel="manifest" href="/manifest.json">
+
+		<style>
+			/* Navbar container */
+			.navbar {
+				background-color: #000;
+				height: 48px;
+				display: flex;
+				align-items: center;
+				padding: 0 20px;
+				margin: 0px;
+			}
+
+			/* Navbar links styled as tabs */
+			.navbar a {
+				color: #fff;
+				font-family: "Open Sans", Helvetica, Arial, sans-serif;
+				font-size: 13px;
+				text-decoration: none;
+				padding: 0 15px;
+				height: 48px;
+				line-height: 48px;
+				display: inline-block;
+			}
+
+			/* Hover effect */
+			.navbar a:hover {
+				background-color: #ff0000;
+			}
+
+			/* Hover effect */
+			.navbar a.active {
+				background-color: #ff0000;
+			}
+
+			.bg-obred {
+				background-color: #ff0000;
+			}
+
+			.bd-obred {
+				border-color: #ff0000;
+			}
+
+			.fg-obred {
+				color: #ff0000;
+			}
+
+			.ob-button {
+				display: inline-block;
+				font-weight: 400;
+				text-align: center;
+				white-space: nowrap;
+				vertical-align: middle;
+				-webkit-user-select: none;
+				-moz-user-select: none;
+				-ms-user-select: none;
+				user-select: none;
+				border: 1px solid transparent;
+				padding: 0 0.75rem;
+				font-size: 0.875rem;
+				line-height: 34px;
+				height: 36px;
+				-webkit-transition: all 0.15s ease-in-out;
+				transition: all 0.15s ease-in-out;
+
+				cursor: pointer;
+				outline: none;
+				position: relative;
+			}
+		</style>
+	</head>
+
+	<body>
+
+		<!-- container1 Drog Container wraps all other content -->
+		<div id="container1">
+			<span class="fa-layers fa-fw fa-4x" id="flyingdoc" style="display: none; position: absolute; z-index: 20000;">
+				<i class="fas fa-square fg-red"></i>
+				<i class="fa fa-object-group fg-white" data-fa-transform="shrink-6"></i>
+			</span>
+			<div data-role="splitter" data-split-sizes="80,20" data-min-sizes="480,400" class="h-100">
+				<div id="col1" style="overflow: hidden;">
+					<div class="window drop-shadow" style="height: calc(100% - 10px); overflow: hidden;">
+						<div class="window-caption bg-black" style="height: 90px; padding: 10px;">
+							<img src="images/plasma-logo.png" height="64" alt="Plasma Kontrol" />
+							<!-- Plazma: OpenBuilds site baglantilari kaldirildi -->
+						</div>
+						<div class="window-content pt-2" style="overflow:hidden; ">
+							<nav data-role="ribbonmenu">
+								<ul class="tabs-holder">
+									<li><a href="#section-workspace"><i class="fas fa-object-group"></i> Project</a></li>
+									<li><a href="#section-settings"><i class="fa fa-fw fa-cogs"></i> Settings</a></li>
+								</ul>
+								<div class="content-holder">
+									<div class="section" id="section-workspace">
+
+										<div class="group">
+
+											<div class="ribbon-button btn-file" title="Open a drawing">
+												<span class="icon">
+													<span class="far fa-folder-open fg-amber"></span>
+												</span>
+												<input id="file" type="file" accept=".svg,.dxf,.gif,.jpg,.jpeg,.tiff,.png,.bmp,.gbl,.gtl,.gbr,.dri,.txt" multiple />
+												<span class="caption">Open<br>Drawing</span>
+											</div>
+
+
+											<span class="title">File</span>
+										</div>
+
+										<div class="group">
+											<div class="ribbon-group">
+												<button class="ribbon-icon-button" onclick="storeUndo(true); objectsInScene.length = 0; toolpathsInScene.length = 0; trashGcode(); fillTree(); $('.workspaceTitle').html('');">
+													<span class="icon">
+														<span class="far fa-file"></span>
+													</span>
+													<span class="caption">New (Empty) Project</span>
+												</button>
+												<div>
+													<button class="ribbon-icon-button dropdown-toggle">
+														<span class="icon">
+															<span class="fas fa-download"></span>
+														</span>
+														<span class="caption">Save/Open Project</span>
+													</button>
+													<ul class="ribbon-dropdown" data-role="dropdown" data-duration="100">
+														<li onclick="exportWorkspace()"><a href="#">Save Project (Export .OBC file)</a></li>
+														<li class="btn-file"><a href="#">Open Project (.JSON, .OBC)</a><input type="file" id="workspaceImport" accept=".json,.obc" multiple style="height: 26px;" /></li>
+													</ul>
+												</div>
+												<div>
+													<button class="ribbon-icon-button dropdown-toggle">
+														<span class="icon">
+															<span class="fas fa-cog"></span>
+														</span>
+														<span class="caption">Load Example Project</span>
+													</button>
+													<ul class="ribbon-dropdown" data-role="dropdown" data-duration="100">
+														<li onclick="helloWorld()"><a href="#">CNC Hello World</a></li>
+														<li onclick="helloWorldLaser()"><a href="#">Laser Hello World</a></li>
+														<li onclick="helloWorldPlasma()"><a href="#">Plasma Hello World</a></li>
+														<li onclick="helloWorldPen()"><a href="#">Pen Plotter Hello World (RC Servo)</a></li>
+														<li onclick="helloWorldPenZ()"><a href="#">Pen Plotter Hello World (Z Axis)</a></li>
+														<li onclick="helloWorldDragKnife()"><a href="#">Dragknife Hello World</a></li>
+													</ul>
+												</div>
+											</div>
+											<span class="title">Project</span>
+										</div>
+
+										<div class="group">
+											<div class="ribbon-group">
+												<button class="ribbon-icon-button" onclick="Metro.dialog.open(' #addShapeText ');">
+													<span class="icon">
+														<span class="fas fa-font"></span>
+													</span>
+													<span class="caption">Text</span>
+												</button>
+												<br>
+
+												<div>
+													<button class="ribbon-icon-button dropdown-toggle">
+														<span class="icon">
+															<span class="far fa-square"></span>
+														</span>
+														<span class="caption">Shapes</span>
+													</button>
+													<ul class="ribbon-dropdown" data-role="dropdown" data-duration="100">
+														<li onclick="Metro.dialog.open(' #addShapeCircle ');"><a href="#">Circle</a></li>
+														<li onclick="Metro.dialog.open(' #addShapeRect ');"><a href="#">Rectangle</a></li>
+													</ul>
+												</div>
+
+
+
+												<div class="ribbon-group">
+
+													<button class="ribbon-icon-button" onclick="Metro.dialog.open(' #iconslibModal ');">
+														<span class="icon">
+															<span class="far fa-images"></span>
+														</span>
+														<span class="caption">Icons</span>
+													</button>
+
+												</div>
+
+											</div>
+											<span class="title">Insert</span>
+										</div>
+
+										<div class="group">
+											<div class="ribbon-group">
+												<button class="ribbon-icon-button" onclick="resetView();">
+													<span class="icon">
+														<span class="fa fa-eye"></span>
+													</span>
+													<span class="caption">Job</span>
+												</button>
+												<br>
+												<button class="ribbon-icon-button" onclick="resetView(scene.getObjectByName('Grid'));">
+													<span class="icon">
+														<span class="fa fa-th"></span>
+													</span>
+													<span class="caption">Grid</span>
+												</button>
+											</div>
+											<span class="title">Zoom</span>
+										</div>
+										<div class="group">
+											<div class="ribbon-group">
+												<button class="ribbon-icon-button" onclick="undo()">
+													<span class="icon">
+														<span class="fas fa-undo"></span>
+													</span>
+													<span class="caption">Undo</span>
+												</button>
+												<br>
+												<button class="ribbon-icon-button" onclick="redo()">
+													<span class="icon">
+														<span class="fas fa-redo"></span>
+													</span>
+													<span class="caption">Redo</span>
+												</button>
+											</div>
+											<span class="title">Undo/Redo</span>
+										</div>
+										<!-- Plazma CONTROL: yerlesim araclari -->
+										<div class="group">
+											<button class="ribbon-button" onclick="plazmaAnchorDialog();" title="Referans noktası seç, sıfıra taşı veya torca hizala">
+												<span class="icon">
+													<span class="fas fa-crosshairs" style="color:#ff6a00"></span>
+												</span>
+												<span class="caption">Sıfır<br>Noktası</span>
+											</button>
+											<div class="ribbon-group">
+												<button class="ribbon-icon-button" onclick="plazmaMirror('x');" title="Sol ↔ sağ aynala">
+													<span class="icon">
+														<span class="fas fa-arrows-alt-h"></span>
+													</span>
+													<span class="caption">Aynala X</span>
+												</button>
+												<br>
+												<button class="ribbon-icon-button" onclick="plazmaMirror('y');" title="Üst ↔ alt aynala">
+													<span class="icon">
+														<span class="fas fa-arrows-alt-v"></span>
+													</span>
+													<span class="caption">Aynala Y</span>
+												</button>
+												<br>
+												<button class="ribbon-icon-button" onclick="plazmaAlignToTorch();" title="Referans noktasını torcun şu anki konumuna taşı">
+													<span class="icon">
+														<span class="fas fa-fire"></span>
+													</span>
+													<span class="caption">Torca Hizala</span>
+												</button>
+											</div>
+											<span class="title">Plazma Yerleşim</span>
+										</div>
+										<!-- Plazma: duzenleme islemleri -->
+										<div class="group">
+											<button class="ribbon-button" onclick="plazmaProperties();" title="Seçili şeklin ölçülerini düzenle">
+												<span class="icon"><span class="fas fa-ruler-combined" style="color:#ff6a00"></span></span>
+												<span class="caption">Özellikler</span>
+											</button>
+											<div class="ribbon-group">
+												<button class="ribbon-icon-button" onclick="plazmaCopy();">
+													<span class="icon"><span class="far fa-copy"></span></span>
+													<span class="caption">Kopyala</span>
+												</button>
+												<br>
+												<button class="ribbon-icon-button" onclick="plazmaArray();">
+													<span class="icon"><span class="fas fa-th"></span></span>
+													<span class="caption">Dizi</span>
+												</button>
+												<br>
+												<button class="ribbon-icon-button" onclick="plazmaPolarArray();">
+													<span class="icon"><span class="fas fa-sync-alt"></span></span>
+													<span class="caption">Dairesel Dizi</span>
+												</button>
+											</div>
+											<div class="ribbon-group">
+												<button class="ribbon-icon-button" onclick="plazmaFillet();">
+													<span class="icon"><span class="fas fa-bezier-curve"></span></span>
+													<span class="caption">Köşe Yuvarlat</span>
+												</button>
+												<br>
+												<button class="ribbon-icon-button" onclick="plazmaJoin();">
+													<span class="icon"><span class="fas fa-link"></span></span>
+													<span class="caption">Birleştir</span>
+												</button>
+												<br>
+												<button class="ribbon-icon-button" onclick="plazmaOffset();">
+													<span class="icon"><span class="fas fa-clone"></span></span>
+													<span class="caption">Ofset</span>
+												</button>
+											</div>
+											<span class="title">Plazma Düzenle</span>
+										</div>
+										<!-- Plazma: nesting -->
+										<div class="group">
+											<button class="ribbon-button" onclick="PlazmaNest.open();" title="Parçaları saca yerleştir, sac seç, kesim sırasını belirle">
+												<span class="icon"><span class="fas fa-th-large" style="color:#ff6a00"></span></span>
+												<span class="caption">Nesting</span>
+											</button>
+											<button class="ribbon-button" onclick="PlazmaNest.addSelectedParts();" title="Seçili çizimleri nesting parça listesine ekle">
+												<span class="icon"><span class="fas fa-plus-square"></span></span>
+												<span class="caption">Parça<br>Ekle</span>
+											</button>
+											<span class="title">Nesting</span>
+										</div>
+										<div class="group">
+
+											<div id="ddThemeButton">
+												<button id="btnTheme" class="ribbon-button" onclick="Theme.toggle();">
+													<span class="icon" id="currentThemeIcon">
+														<i class="fas fa-paint-brush"></i>
+													</span>
+													<span class="caption" id="currentThemeName">Dark<br>Mode</span>
+												</button>
+											</div>
+											<span class="title">Theme</span>
+										</div>
+
+
+
+									</div>
+									<div class="section" id="section-settings">
+										<div class="group">
+											<button class="ribbon-button" onclick="Metro.dialog.open('#settingsmodal');">
+												<span class="icon">
+													<span class="fa fa-fw fa-cogs"></span>
+												</span>
+												<span class="caption">Settings</span>
+											</button>
+
+											<div class="ribbon-group">
+												<button class="ribbon-icon-button" onclick="backupSettingsLocal()" title="Take a backup">
+													<span class="icon">
+														<span class="fa fa-download fa-fw"></span>
+													</span>
+													<span class="caption">Backup Settings</span>
+												</button>
+												<br>
+
+												<button class="ribbon-icon-button btn-file" title="Open a backup settings file">
+													<span class="icon">
+														<span class="fa fa-upload fa-fw"></span>
+													</span>
+													<span class="caption">Restore from file</span>
+													<input id="jsonFile" type="file" accept=".json" />
+												</button>
+												<br>
+
+												<button class="ribbon-icon-button btn-file" onclick="ConfirmDelete()" title="Reset all settings to default">
+													<span class="icon">
+														<span class="fa fa-exclamation-triangle fa-fw"></span>
+													</span>
+													<span class="caption">Factory Reset</span>
+												</button>
+												<br>
+											</div>
+											<span class="title">Settings</span>
+										</div>
+
+
+
+										<!-- Plazma: OpenBuilds App grubu kaldirildi -->
+
+										<div class="group">
+
+											<div id="ddThemeButton">
+												<button id="btnTheme" class="ribbon-button" onclick="Theme.toggle();">
+													<span class="icon" id="currentThemeIcon">
+														<i class="fas fa-paint-brush"></i>
+													</span>
+													<span class="caption" id="currentThemeName">Dark<br>Mode</span>
+												</button>
+											</div>
+											<span class="title">Theme</span>
+										</div>
+
+
+									</div>
+							</nav>
+							<div id="renderArea">
+
+								<div style="position: absolute; top: 10px; right:10px; z-index: 1; max-width: 100px; max-width: 100px;" id="overlayimg"></div>
+
+								<!-- #draganddrop -->
+								<div id="draganddrop" style="display: none;">
+									<div class="well">Drop File(s) Here!</div>
+									<img src="images/draganddrop.svg" />
+								</div>
+								<div class="sidemenu">
+									<div class="tbtn tbtnactive mouseSelectBtn" onclick="mouseSelectMode();" title="Mouse Select Mode">
+										<i class="fa fas fa-mouse-pointer" aria-hidden="true"></i>
+									</div>
+
+									<div class="tbtn mouseMoveBtn" onclick="mouseMoveMode();" title="Mouse Move Mode">
+										<i class="fas fa-arrows-alt " aria-hidden="true"></i>
+									</div>
+
+									<div class="tbtn mouseDelBtn" onclick="mouseEraseMode();" title="Mouse Erase Mode">
+										<i class="fas fa-eraser " aria-hidden="true"></i>
+									</div>
+									<!-- <hr class="bg-grayBlue"> -->
+									<div class="tbtn mouseScaleBtn" onclick="mouseScaleMode();" title="Mouse Scale/Move/Rotate Mode">
+										<i class="fas fa-ruler" aria-hidden="true"></i>
+									</div>
+									<!-- Plazma: cizim araclari -->
+									<div style="border-top:1px solid #888; margin:4px 6px;"></div>
+									<div class="tbtn plazmaToolBtn" data-tool="polyline" title="Çizgi (çoklu çizgi)">
+										<i class="fas fa-pen" aria-hidden="true" style="color:#ff6a00"></i>
+									</div>
+									<div class="tbtn plazmaToolBtn" data-tool="rect" title="Dikdörtgen">
+										<i class="far fa-square" aria-hidden="true" style="color:#ff6a00"></i>
+									</div>
+									<div class="tbtn plazmaToolBtn" data-tool="circle" title="Daire">
+										<i class="far fa-circle" aria-hidden="true" style="color:#ff6a00"></i>
+									</div>
+									<div class="tbtn plazmaToolBtn" data-tool="arc" title="Yay (3 nokta)">
+										<i class="fas fa-circle-notch" aria-hidden="true" style="color:#ff6a00"></i>
+									</div>
+									<div class="tbtn plazmaToolBtn" data-tool="polygon" title="Çokgen">
+										<i class="fas fa-draw-polygon" aria-hidden="true" style="color:#ff6a00"></i>
+									</div>
+									<div class="tbtn plazmaToolBtn" data-tool="slot" title="Kanal">
+										<i class="fas fa-capsules" aria-hidden="true" style="color:#ff6a00"></i>
+									</div>
+									<div class="tbtn plazmaToolBtn" data-tool="trim" title="Kırp (Trim)">
+										<i class="fas fa-cut" aria-hidden="true" style="color:#ff6a00"></i>
+									</div>
+									<div class="tbtn plazmaToolBtn" data-tool="node" title="Düğüm Düzenle">
+										<i class="fas fa-project-diagram" aria-hidden="true" style="color:#ff6a00"></i>
+									</div>
+
+								</div>
+								<div id="selection" style="visibility: hidden;"></div>
+								<!--  -->
+
+								<!--  -->
+							</div>
+
+							<div id="scalewindow" style="visibility: hidden;" data-role="draggable" data-drag-element=".drag-element">
+								<div class="window">
+									<div class="window-caption drag-element bg-openbuilds">
+										<span class="icon fas fa-ruler"></span>
+										<span class="title">Transform</span>
+										<div class="buttons">
+											<span class="btn-close" onclick="scalewindow.style.visibility = 'hidden';"></span>
+										</div>
+									</div>
+									<div class="window-content p-2" id="scalewindowcontent">
+										<!--  -->
+									</div>
+								</div>
+							</div>
+
+
+						</div>
+						<div id="helpoverlay">
+							<kbd>Left Mouse</kbd> = Select / <kbd>Middle Mouse</kbd> = Orbit / <kbd>Right Mouse</kbd> = Pan / <kbd>Wheel</kbd> = Zoom / <kbd>Ctrl</kbd> = Multiple Select / <kbd>Del</kbd> = Delete Selected
+						</div>
+						<div id="simoverlay" class="text-center">
+							<button class="button dark drop-shadow" onclick="simSpeed();"><span class="icon"><span class="fas fa-tachometer-alt"></span></span><span class="caption"><span id="simspeedval">1</span>x</span></button>
+							<button id="runSimBtn" title="Run simulation" class="button dark drop-shadow" onclick="sim(0)" disabled><i class="fas fa-fighter-jet"></i> Simulate</button>&nbsp;
+							<button id="stopSimBtn" style="display: none;" title="Stop Sim" class="button dark drop-shadow" onclick="simstop()"><i class="fas fa-stop"></i> Stop Sim</button>&nbsp;
+							<button id="resetViewBtn" title="Stop Sim" class="button dark drop-shadow" onclick="resetView(object)"><i class="fas fa-stop"></i> Reset View</button>&nbsp;
+							<div class="text-left viewer-checkboxes drop-shadow">
+								<div data-role="collapse" data-collapsed="false" data-toggle-element="#collapse_toggle_1">
+									<input type="checkbox" data-role="checkbox" data-caption="Documents" checked data-style="2" id="view-docs">
+									<input type="checkbox" data-role="checkbox" data-caption="Toolpaths" checked data-style="2" id="view-toolpath">
+									<input type="checkbox" data-role="checkbox" data-caption="GCODE" checked data-style="2" id="view-gcode">
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<!-- #col2 (main content)-->
+				<div id="col2">
+					<!-- <div style="height: 100%; overflow-y:hidden; padding-right:5px;"> -->
+
+					<div data-role="splitter" data-split-mode="vertical" data-split-sizes="25,55,10,10" data-min-sizes="200,200,100,110" class="h-100">
+						<div id="renderDocuments" class="window drop-shadow">
+							<div class="window-caption bg-black">
+								<i class="far fa-file-alt fa-fw ml-1 mr-1"></i>
+								<span class="title">1. Documents <span class="workspaceTitle"></span></span>
+							</div>
+							<div id="selectoverlay" class="text-center mt-1">
+								<button class="button drop-shadow" id="selectAll"><span class="far fa-check-square"></span> All</button>
+								<button class="button drop-shadow" id="selectNone"><span class="far fa-square"></span> None</button>
+								<button class="button drop-shadow" id="selectInv"><span class="fas fa-check"></span> Invert</button>
+								<button class="button drop-shadow" id="selectDel"><span class="fas fa-trash"></span> Delete</button>
+							</div>
+							<div class="window-content p-1" style="overflow-y:scroll;">
+								<!-- Documents Here -->
+								<div class="pt-2" id="documentactivity" style="display: none;">
+									<center>
+										<h5>Please Wait </h5>
+										<div data-role="activity" data-type="ring" data-style="dark"></div>
+										<h6>Parsing Documents...</h6>
+								</div>
+
+								<div id="documentstree">
+									<div id="nodocuments" style="display:none;">
+										<p class="text-secondary text-center mt-3">Please load some vectors from DXF (Polylines) or SVG (Paths); or Images (Traceable); or insert a Shape, Icon or some Text using the built-in tools to get started
+										</p>
+										<p class="text-center">
+											<button class="ob-button bg-obred fg-white drop-shadow" style="width: 300px;" title="Open Drawing" onclick="$('#file').click();"><span class="far fa-folder-open fa-fw icon"></span>Open Drawing</button>
+										</p>
+
+
+									</div>
+									<ul data-role="treeview pl-0" id="left-tree-view">
+									</ul>
+								</div>
+
+							</div>
+
+						</div>
+						<div class="window drop-shadow mt-2">
+							<div class="window-caption bg-black">
+								<i class="fas fa-tasks fa-fw ml-1 mr-1"></i>
+								<span class="title">2. Configure Toolpaths</span>
+								<div class="buttons">
+
+								</div>
+							</div>
+							<div id="tpathoverlay" class="text-center mt-1">
+								<div class="split-button drop-shadow">
+									<button class="button" id="addJobBtn" onclick="addJob(-1);"><span class="icon fa-fw fa fa-plus"></span><span class="addJobBtn-text">Please select Vector(s) to create toolpaths</span></button>
+									<button class="split dropdown-toggle outline" id="addJobMenuBtn" display: none;></button>
+									<ul class="d-menu" data-role="dropdown" id="toolpathsmenu">
+										<!--  -->
+									</ul>
+								</div>
+
+							</div>
+
+							<div class="window-content p-1" style="overflow-y:scroll;">
+								<div class="pt-2" id="toolpathactivity" style="display: none;">
+									<center>
+										<h5>Please Wait </h5>
+										<div data-role="activity" data-type="ring" data-style="dark"></div>
+										<h6>Calculating Toolpaths...</h6>
+								</div>
+								<div id="toolpathtree">
+								</div>
+
+							</div>
+						</div>
+
+						<div class="window drop-shadow mt-2">
+							<div class="window-caption bg-black">
+								<i class="fa fa-cubes fa-fw ml-1 mr-1"></i>
+								<span class="title">3. Create G-code</span>
+								<div class="buttons">
+								</div>
+							</div>
+							<div class="window-content p-1 text-center  mt-1" style="overflow-y:hidden;">
+								<button class="button drop-shadow" style="width: 300px;" title=" Generate G-Code" id="generatetpgcode" onclick="makeGcode();"><span class="fa fa-cubes fa-fw icon"></span>Generate G-Code</button>
+							</div>
+						</div>
+
+						<div class="window drop-shadow mt-2">
+							<div class="window-caption bg-black">
+								<i class="fa fa-save fa-fw ml-1 mr-1"></i>
+								<span class="title">4. Export G-code</span>
+								<div class="buttons">
+								</div>
+							</div>
+
+
+							<div class="window-content p-1 text-center  mt-1" style="overflow-y:hidden;">
+
+								<button class="button drop-shadow" title="G-code'u Plazma CONTROL'e gönder ve makine sekmesine geç" id="plazmaSendBtn" onclick="plazmaSendToControl();" style="background:#ff6a00;color:#111;font-weight:700;"><span class="fa fa-paper-plane fa-fw icon"></span>CONTROL'e Gönder</button>
+								<button class="button drop-shadow" title="Save G-Code" id="gcodesavebtn2" onclick="saveFile();"><span class="fa fa-save fa-fw icon"></span>Save G-Code</button>
+								<button class="button drop-shadow" title="Preview G-Code" id="gcodeviewbtn2" onclick="previewFile();"><span id="gcodepreviewicon" class="fa fa-eye fa-fw icon fg-gray"></span></button>
+								<button class="button drop-shadow" title="Clear G-Code" id="gcodetrashbtn2" onclick="trashGcode();"><span id="trashicon" class="fa fa-trash fa-fw fg-gray icon"></span></button>
+
+							</div>
+
+						</div>
+
+					</div>
+					<!-- </div> -->
+				</div>
+			</div>
+		</div>
+
+		<!-- Modals Divs -->
+		<div style="display: none;">
+			<!-- Hide Dialogs until called -->
+			<!-- openjscad output -->
+			<textarea id="dxf" style="width: 565px; height: 400px;"></textarea>
+			<!-- <div id="openjscad"></div>
+		<div oncontextmenu="return false;" id="viewerContext"></div> -->
+			<!-- avoiding popup when right mouse is clicked -->
+
+			<div class="dialog dark" data-overlay-click-close="true" data-role="dialog" id="statusmodal" data-to-top="true" data-width="540">
+				<div class="dialog-title" id="statusTitle">Status title </div>
+				<div class="dialog-content">
+					<div id="statusBody"></div>
+					<div id="statusBody2" style="overflow-y: auto; height: calc(100vh - 430px); "></div>
+				</div>
+				<div class="dialog-actions" id="statusFooter">
+					<button class="button js-dialog-close">Disagree</button>
+					<button class="button primary js-dialog-close">Agree</button>
+				</div>
+			</div>
+
+			<div class="dialog dark" data-overlay-click-close="true" data-role="dialog" id="iconslibModal" data-width="800" data-to-top="true">
+				<div class="dialog-title">Icons Library</div>
+				<div class="dialog-content" style="max-height: calc(100vh - 200px);overflow-y: auto; overflow-x: hidden;">
+					Click Icon below to load it into CAM project:
+					<hr>
+					<div id="iconslibrary">
+
+					</div>
+				</div>
+				<div class="dialog-actions row" style="white-space: nowrap;">
+					<button class="button float-right js-dialog-close cell-3">Cancel</button>
+
+					<input id="iconlib_filter" onchange="iconlib_Page()" class="float-left" style="max-width:150px;" data-role="input" data-search-button="true" placeholder="Filter" autofocus type="text" value="">
+
+					<div style="display:inline-block;white-space: normal;">
+						<button class="button float-left" onclick="iconlib_Page(-1)"><span class="fa fa-fw fa-arrow-left"></span></button>
+
+						<input data-role="input" id="iconlib_PageOf" onchange="iconlib_Page()" autofocus type="number" min="1" step="1" data-prepend="Page:" data-append="Of #" class="float-left" value="1" style="width:175px;">
+
+						<button class="button float-left" onclick="iconlib_Page(1)"><span class="fa fa-fw fa-arrow-right"></span></button>
+					</div>
+				</div>
+			</div>
+
+			<div class="dialog dark" data-overlay-click-close="true" data-role="dialog" id="splashModal" data-width="800" data-to-top="true">
+				<div class="dialog-title"><i class="fas fa-fw fa-history"></i> Changelog</div>
+				<div class="dialog-content" style="max-height: calc(100vh - 200px);overflow-y: auto; overflow-x: hidden;">
+					<div id="changelog" class="text-small"></div>
+				</div>
+				<div class="dialog-actions">
+					<button class="button js-dialog-close primary">Close</button>
+				</div>
+			</div>
+
+	</body>
+
+	<script>
+		METRO_HOTKEYS_FILTER_CONTENT_EDITABLE = false;
+		METRO_HOTKEYS_FILTER_INPUT_ACCEPTING_ELEMENTS = true;
+		METRO_HOTKEYS_FILTER_TEXT_INPUTS = true;
+	</script>
+
+	<script type="text/javascript" src="lib/fontawesome5/js/all.js"></script>
+
+	<script type="text/javascript" src="lib/jquery/jquery.min.js"></script>
+	<!-- <script type="text/javascript" src="lib/popper.min.js"></script> -->
+	<!-- <script type="text/javascript" src="lib/bootstrap4/js/bootstrap.min.js"></script> -->
+	<script type="text/javascript" src="lib/jquery/jquery-ui.js"></script>
+	<script type="text/javascript" src="lib/jquery/jquery.ui.touch-punch.min.js"></script>
+
+	<!-- <link type="text/css" rel="stylesheet" media="all" href="lib/bootoast/src/bootoast.css" />
+<script type="text/javascript" src="lib/bootoast/src/bootoast.js"></script> -->
+
+	<!-- METRO -->
+	<script type="text/javascript" src="lib/metro4/js/metro.min.js"></script>
+	<!-- <script src="https://cdn.metroui.org.ua/v4/js/metro.min.js"></script> -->
+
+	<!-- Helpers -->
+	<script type="text/javascript" src="js/helpers.js"></script>
+
+	<!-- Theme  -->
+	<script type="text/javascript" src="js/theme.js"></script>
+
+	<!-- Google Fonts as CAM paths -->
+	<script type="text/javascript" src="lib/jquery/fontselect/jquery.fontselect.min.js"></script>
+	<script type="text/javascript" src="lib/opentypejs/opentype.min.js"></script>
+
+	<!-- SimpleCAD -->
+	<script type="text/javascript" src="js/basic-cad-shapes.js"></script>
+	<script type="text/javascript" src="js/basic-cad-text.js"></script>
+	<script type="text/javascript" src="js/basic-cad-iconslib.js"></script>
+
+	<!-- ThreeJS -->
+	<script type="text/javascript" src="lib/threejs/three.min.js"></script>
+	<script type="text/javascript" src="lib/threejs/GridRect.js"></script>
+	<script type="text/javascript" src="lib/threejs/OrbitControls.js"></script>
+	<script type="text/javascript" src="lib/threejs/DragControls.js"></script>
+	<script type="text/javascript" src="lib/threejs/Projector.js"></script>
+	<script type="text/javascript" src="lib/threejs/CanvasRenderer.js"></script>
+	<script type="text/javascript" src="lib/threejs/TransformControls.js"></script>
+	<script type="text/javascript" src="lib/threejs/TweenMax.min.js"></script>
+	<script type="text/javascript" src="js/viewer.js"></script>
+	<script type="text/javascript" src="js/viewer-ruler.js"></script>
+	<script type="text/javascript" src="js/viewer-pause.js"></script>
+
+
+	<!-- CAM populated from threejs objects -->
+	<script type="text/javascript" src="lib/gl-matrix.js"></script>
+	<script type="text/javascript" src="lib/tbfleming/web-cam-cpp.js"></script>
+	<script type="text/javascript" src="lib/clipperjs/clipper_unminified.js"></script>
+	<script type="text/javascript" src="js/advanced-cam-fillpath.js"></script>
+	<script type="text/javascript" src="js/advanced-cam-geometryutils.js"></script>
+	<script type="text/javascript" src="js/advanced-cam.js"></script>
+	<script type="text/javascript" src="js/advanced-cam-gcode.js"></script>
+	<script type="text/javascript" src="js/advanced-cam-doctree.js"></script>
+	<script type="text/javascript" src="js/advanced-cam-tree.js"></script>
+	<script type="text/javascript" src="js/advanced-cam-modal.js"></script>
+	<script type="text/javascript" src="js/advanced-cam-viewer-mouse.js"></script>
+	<script type="text/javascript" src="js/advanced-cam-viewer-select.js"></script>
+	<script type="text/javascript" src="js/advanced-cam-workspace-export.js"></script>
+	<script type="text/javascript" src="js/advanced-cam-pretty-render.js"></script>
+	<script type="text/javascript" src="js/advanced-cam-sim.js"></script>
+	<script type="text/javascript" src="js/advanced-cam-keyboard-bindings.js"></script>
+	<script type="text/javascript" src="js/advanced-cam-transforms.js"></script>
+	<script type="text/javascript" src="js/advanced-cam-drill.js"></script>
+	<script type="text/javascript" src="js/advanced-cam-booleans.js"></script>
+
+	<script type="text/javascript" src="js/basic-cad-tool-merge-lines.js"></script>
+
+
+
+	<!-- DXF Library -->
+	<script type="text/javascript" src="lib/dxf/dxf-parser.js"></script>
+	<script type="text/javascript" src="lib/dxf/three-dxf.js"></script>
+	<script type="text/javascript" src="js/dxf-render.js"></script>
+
+	<!-- lautr3k's SVG  Library -->
+	<script type="text/javascript" src="lib/lw.svg-parser/dist/lw.svg-parser.js"></script>
+	<script type="text/javascript" src="js/svgparser.js"></script>
+
+	<!-- Bitmap Tracing -->
+	<script type="text/javascript" src="lib/potrace/potrace.js"></script>
+	<script type="text/javascript" src="js/potrace.js"></script>
+
+	<!--Settings Widgets -->
+	<script type="text/javascript" src="js/plazma-defaults.js"></script>
+	<script type="text/javascript" src="js/application-settings-controller.js"></script>
+
+	<!-- Gcode Viewer -->
+	<script type="text/javascript" src="lib/3dview/3dview.js"></script>
+
+	<!-- Hello World Job -->
+	<script type="text/javascript" src="js/basic-cad-helloworld.js"></script>
+
+	<!-- Gerber Parser -->
+	<script type="text/javascript" src="lib/gerber/parser.js"></script>
+	<script type="text/javascript" src="lib/gerber/gerberparser.js"></script>
+
+	<!-- User Interface -->
+	<script type="text/javascript" src="js/main.js"></script>
+		<script type="text/javascript" src="js/plazma-fixdxf.js"></script>
+		<script type="text/javascript" src="js/plazma-send.js"></script>
+		<script type="text/javascript" src="js/plazma-layout.js"></script>
+		<script type="text/javascript" src="js/plazma-geom.js"></script>
+		<script type="text/javascript" src="js/plazma-draw.js"></script>
+		<script type="text/javascript" src="js/plazma-edit.js"></script>
+		<script type="text/javascript" src="js/plazma-leadio.js"></script>
+		<script type="text/javascript" src="workers/plazma-nest/nest-engine.js"></script>
+		<script type="text/javascript" src="js/plazma-nest.js"></script>
+
+	<!-- WebWorkers -->
+	<script src="workers/toolpath/toolpath.js"></script>
+	<script src="workers/toolpath/worker/toolpathworker.js"></script>
+
+
+
+	<!-- OpenJSCAD -->
+	<!-- <script src="lib/openjscad/src/csg.js"></script>
+<script src="lib/openjscad/src/threecsg.js"></script>
+<script src="lib/openjscad/src/openjscad.js"></script>
+<script src="lib/openjscad/src/openscad.js"></script>
+<script src="lib/openjscad/src/formats.js"></script>
+<script src="lib/openjscad/geargen.js"></script> -->
+
+
+	<!-- Used by CAD-text -->
+	<script src="https://cdn.jsdelivr.net/npm/rsvp@4/dist/rsvp.min.js"></script>
+
+	<script type="x-shader/x-vertex" id="vertexShader">
+		varying vec3 vWorldPosition; void main() { vec4 worldPosition = modelMatrix * vec4( position, 1.0 ); vWorldPosition = worldPosition.xyz; gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 ); }
+
+</script>
+	<script type="x-shader/x-fragment" id="fragmentShader">
+		uniform vec3 topColor; uniform vec3 bottomColor; uniform float offset; uniform float exponent; varying vec3 vWorldPosition; void main() { float h = normalize( vWorldPosition + offset ).z; gl_FragColor = vec4( mix( bottomColor, topColor, max( pow( max(
+	h , 0.0), exponent ), 0.0 ) ), 1.0 ); }
+
+</script>
+
+	<!-- Google tag (gtag.js) PW -->
+	<script async src="https://www.googletagmanager.com/gtag/js?id=G-0RS08406WF"></script>
+	<script>
+		window.dataLayer = window.dataLayer || [];
+
+		function gtag() {
+			dataLayer.push(arguments);
+		}
+		gtag('js', new Date());
+
+		gtag('config', 'G-0RS08406WF');
+	</script>
+
+	<!-- Google tag (gtag.js) OB -->
+	<script async src="https://www.googletagmanager.com/gtag/js?id=G-99W0NNG5PL"></script>
+	<script>
+		window.dataLayer = window.dataLayer || [];
+
+		function gtag() {
+			dataLayer.push(arguments);
+		}
+		gtag('js', new Date());
+
+		gtag('config', 'G-99W0NNG5PL');
+	</script>
+
+</html>

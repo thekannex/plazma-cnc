@@ -1,0 +1,283 @@
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-touch-callout: none;
+  /* iOS Safari */
+  -webkit-user-select: none;
+  /* Safari */
+  -khtml-user-select: none;
+  /* Konqueror HTML */
+  -moz-user-select: none;
+  /* Firefox */
+  -ms-user-select: none;
+  /* Internet Explorer/Edge */
+  user-select: none;
+  /* Non-prefixed version, currently
+                                   supported by Chrome and Opera */
+  overflow-y: hidden;
+}
+
+/* Implemented as default https://thayneco.com/expand-usb-port-selector-in-openbuilds-control/  */
+#section-jog div:nth-child(2) label {
+  width: 450px;
+}
+
+/* Fix dialog-actions alignment */
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end
+}
+
+#jogcontrols {
+  /* Note only uses height attribs from here, before we connect to websocket. After that, it gets set by websocket.js */
+  height: 240px;
+}
+
+#macros {
+  /* Note only uses height attribs from here, before we connect to websocket. After that, it gets set by websocket.js */
+  height: calc(100vh - 495px);
+  width: 100%;
+  border-top: 1px solid #ccc;
+  /* margin-top: 5px; */
+  box-shadow: 0 0 2px 2px #ddd;
+  /* background-color: #fff; */
+}
+
+#renderArea {
+  /* Note only uses height attribs from here, before we connect to websocket. After that, it gets set by websocket.js */
+  height: calc(100vh - 495px);
+  width: 100%;
+  border-top: 1px solid #ccc;
+  /* margin-top: 5px; */
+  box-shadow: 0 0 2px 2px #ddd;
+  /* background-color: #fff; */
+}
+
+#editor {
+  /* Note only uses height attribs from here, before we connect to websocket. After that, it gets set by websocket.js */
+  height: calc(100vh - 535px);
+  width: 100%;
+  border-top: 1px solid #ccc;
+  /* margin-top: 5px; */
+  box-shadow: 0 0 2px 2px #ddd;
+}
+
+#fluidnceditor {
+  /* Note only uses height attribs from here, before we connect to websocket. After that, it gets set by websocket.js */
+  height: calc(100vh - 235px);
+  width: 100%;
+  border-top: 1px solid #ccc;
+  /* margin-top: 5px; */
+  box-shadow: 0 0 2px 2px #ddd;
+}
+
+#console>p {
+  margin-top: 5px;
+}
+
+#console>p:hover {
+  background-color: #eee;
+}
+
+#console {
+  /*font-family: "Courier New", Courier, monospace;*/
+  font-family: "Lucida Console", Monaco, monospace;
+  height: calc(100vh - 535px);
+  width: 100%;
+  overflow-y: auto;
+  overflow-x: none;
+  text-align: left;
+  /* background-color: #fff; */
+  box-shadow: 0 0 2px 2px #ddd;
+  padding: 0px;
+  font-size: 12px;
+  padding-left: 20px;
+  white-space: normal;
+  margin-bottom: 0px;
+  -webkit-touch-callout: text;
+  /* iOS Safari */
+  -webkit-user-select: text;
+  /* Safari */
+  -khtml-user-select: text;
+  /* Konqueror HTML */
+  -moz-user-select: text;
+  /* Firefox */
+  -ms-user-select: text;
+  /* Internet Explorer/Edge */
+  user-select: text;
+  /* Non-prefixed version, currently
+                                     supported by Chrome and Opera */
+}
+
+#grblPanel {
+  max-height: calc(100vh - 215px);
+  height: calc(100vh - 215px);
+  width: 100%;
+  overflow-y: none;
+  overflow-x: none;
+  padding: 8px;
+  -webkit-touch-callout: text;
+  /* iOS Safari */
+  -webkit-user-select: text;
+  /* Safari */
+  -khtml-user-select: text;
+  /* Konqueror HTML */
+  -moz-user-select: text;
+  /* Firefox */
+  -ms-user-select: text;
+  /* Internet Explorer/Edge */
+  user-select: text;
+  /* Non-prefixed version, currently
+                                     supported by Chrome and Opera */
+}
+
+.pf {
+  margin-top: 0px;
+  margin-bottom: -4px;
+}
+
+select {
+  font-family: 'FontAwesome', sans-serif;
+}
+
+.btn-file {
+  position: relative;
+  overflow: hidden;
+  margin-top: 0px !important;
+  margin-bottom: 0px !important;
+  margin-left: 0px !important;
+  margin-right: 0px !important;
+}
+
+.btn-file input[type=file] {
+  position: absolute;
+  top: 0;
+  right: 0;
+  min-width: 100%;
+  min-height: 100%;
+  font-size: 100px;
+  text-align: right;
+  filter: alpha(opacity=0);
+  opacity: 0;
+  outline: none;
+  background: white;
+  cursor: inherit;
+  display: block;
+}
+
+/* OpenBuilds Navbar for MetroWindows */
+.fg-openbuilds {
+  color: rgb(0, 0, 0) !important;
+}
+
+.bg-openbuilds {
+  background-color: rgb(0, 0, 0) !important;
+}
+
+.bd-openbuilds {
+  border-color: rgb(0, 0, 0) !important;
+}
+
+.openbuilds-switch .check::after {
+  : rgb(0, 0, 0) !important;
+  border-color: rgb(0, 0, 0) !important;
+}
+
+.openbuilds-switch input[type="checkbox"]:checked~.check {
+  background: rgb(0, 0, 0) !important;
+}
+
+.openbuilds-switch input[type="checkbox"]:checked~.check::after {
+  border-color: #ffffff !important;
+  background: #ffffff !important;
+}
+
+.keyboardpanel td:nth-child(1) {
+  width: 60px;
+  height: 60px;
+}
+
+.keyboardpanel td:nth-child(2) {
+  width: 60px;
+  height: 60px;
+}
+
+.macrotype {
+  position: absolute !important;
+  top: 2px !important;
+  right: 2px !important;
+  font-size: 10px !important;
+}
+
+.macrokbd {
+  position: absolute !important;
+  bottom: 2px !important;
+  right: 2px !important;
+  font-size: 10px !important;
+}
+
+#macrogcode {
+  /*font-family: "Courier New", Courier, monospace;*/
+  font-family: "Lucida Console", Monaco, monospace;
+  font-size: 12px;
+  padding: 5px;
+  -webkit-touch-callout: text;
+  /* iOS Safari */
+  -webkit-user-select: text;
+  /* Safari */
+  -khtml-user-select: text;
+  /* Konqueror HTML */
+  -moz-user-select: text;
+  /* Firefox */
+  -ms-user-select: text;
+  /* Internet Explorer/Edge */
+  user-select: text;
+}
+
+#macrojs {
+  /*font-family: "Courier New", Courier, monospace;*/
+  font-family: "Lucida Console", Monaco, monospace;
+  font-size: 12px;
+  padding: 5px;
+  -webkit-touch-callout: text;
+  /* iOS Safari */
+  -webkit-user-select: text;
+  /* Safari */
+  -khtml-user-select: text;
+  /* Konqueror HTML */
+  -moz-user-select: text;
+  /* Firefox */
+  -ms-user-select: text;
+  /* Internet Explorer/Edge */
+  user-select: text;
+}
+
+.machineicon:hover {
+  color: #CE352C !important;
+}
+
+#splash {
+  z-index: 2000;
+  width: 100vw;
+  height: 100vh;
+  background-color: #000;
+}
+
+.machine-profile-menu {
+  border: 1px solid rgb(64, 68, 71);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.6),
+    /* Darker shadow for all sides */
+    0 4px 8px rgba(0, 0, 0, 0.4);
+  /* Additional dark shadow */
+  border-radius: 3px;
+  /* Optional: Adds rounded corners */
+  padding: 10px;
+  /* Optional: Adds some padding inside the div */
+  background: white;
+  left: 20px;
+  margin-top: 10px;
+}
+
+.step-list>li::before {
+  color: #111 !important;
+}

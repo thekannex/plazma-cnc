@@ -1,0 +1,22 @@
+#splash {
+  z-index: 2000;
+  width: 100vw;
+  height: 100vh;
+  position: fixed;
+  /* Ensure it covers the viewport */
+  top: 0;
+  left: 0;
+  display: flex;
+  /* Use flexbox for centering */
+  justify-content: center;
+  /* Horizontal centering */
+  align-items: center;
+  /* Vertical centering */
+  background-color: #000;
+}
+
+#openbuildslogosplash img {
+  width: 500px;
+  max-width: 100%;
+  /* Ensure it scales on smaller screens */
+}
