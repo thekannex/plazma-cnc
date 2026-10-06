@@ -873,7 +873,12 @@ io.on("connection", function(socket) {
   });
 
   socket.on("minimisetotray", function(data) {
-    jogWindow.hide();
+    // Plazma: kapat dugmesi tepsiye gizlemek yerine programi kapatir (onay arayuzde sorulur)
+    forceQuit = true;
+    if (appIcon) {
+      appIcon.destroy();
+    }
+    electronApp.exit(0);
   });
 
   socket.on("minimize", function(data) {
@@ -3219,10 +3224,29 @@ if (isElectron()) {
       //jogWindow.webContents.openDevTools()
 
       jogWindow.on('close', function(event) {
-        if (!forceQuit) {
-          jogWindow.hide();
-          return false;
+        // Plazma: pencere kapatilinca (Alt+F4, gorev cubugu) tepsiye gizlenmez, program kapanir.
+        // Kesim suruyorsa once onay istenir: akis yarida kesilirse torc acik kalabilir.
+        if (forceQuit) return;
+        if (status.comms.connectionStatus >= 3 && status.comms.connectionStatus <= 4) {
+          var choice = dialog.showMessageBoxSync(jogWindow, {
+            type: 'warning',
+            buttons: ['Kapatma', 'Yine de kapat'],
+            defaultId: 0,
+            cancelId: 0,
+            title: 'Plasma Kontrol',
+            message: 'Kesim devam ediyor!',
+            detail: 'Programı kapatırsanız makineye komut akışı yarıda kesilir ve torç açık kalabilir. Önce işi durdurun.'
+          });
+          if (choice !== 1) {
+            event.preventDefault();
+            return;
+          }
         }
+        forceQuit = true;
+        if (appIcon) {
+          appIcon.destroy();
+        }
+        electronApp.exit(0);
       });
 
       // Emitted when the window is closed.

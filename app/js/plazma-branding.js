@@ -13,6 +13,20 @@
     };
   }
 
+  // Kapat düğmesi: tepsiye gizlemek yerine programı kapatır. Kesim sürüyorsa önce onay ister.
+  window.plazmaQuit = function() {
+    var running = typeof laststatus !== 'undefined' && laststatus.comms && (laststatus.comms.connectionStatus === 3 || laststatus.comms.connectionStatus === 4);
+    if (!running) { socket.emit('minimisetotray'); return; }
+    Metro.dialog.create({
+      title: '<span class="fg-red">Kesim devam ediyor!</span>',
+      content: '<div>Programı kapatırsanız makineye komut akışı yarıda kesilir ve <b>torç açık kalabilir</b>. Önce işi durdurun.</div>',
+      actions: [
+        { caption: 'Kapatma', cls: 'js-dialog-close success' },
+        { caption: 'Yine de kapat', cls: 'js-dialog-close alert', onclick: function() { socket.emit('minimisetotray'); } }
+      ]
+    });
+  };
+
   // Otomatik güncelleme kapalı: OpenBuilds'in GitHub sürümlerini kontrol edip
   // programı resmi OpenBuilds CONTROL ile değiştirmesin
   window.checkUpdate = function() {};
