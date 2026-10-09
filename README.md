@@ -19,6 +19,8 @@ Windows (64 bit): **[Releases](../../releases)** sayfasından `PlasmaKontrol-win
 - Düğüm düzenleme, **kırp (trim)**, birleştir, köşe yuvarlat, ofset, kopyala, dizi, dairesel dizi
 - Parametrik şekiller: ölçüler sonradan değiştirilebilir, toolpath ve G-code kendiliğinden güncellenir
 - Aynalama, 9 noktadan sıfır seçimi, torca hizalama
+- **Malzeme kütüphanesi (kesim tablosu)**: malzeme/kalınlık seçince kerf, hız, delme ve kesim yüksekliği gelir
+- **Mikro bağlantı (köprü)**: küçük parçalar ızgaralı tablaya düşmesin
 - Plazma G-code: ayarlanabilir torç kapama (`M3 S0`), FluidNC uyumlu IHS dizisi, yay lead-in, kontur sonu bindirme, küçük delik yavaşlatma
 
 **Nesting (sac yerleşimi)**
@@ -31,6 +33,8 @@ Windows (64 bit): **[Releases](../../releases)** sayfasından `PlasmaKontrol-win
 - CAM'den tek tuşla G-code gönderme
 - **Sac hizalama**: iki noktayla sacın köşesi ve eğikliği; G-code otomatik döndürülür
 - **Artık sac tanıtma**: torcu artığın köşelerinde gezdirerek şeklini nesting'e aktarma
+- **İş öncesi kontrol**: torç açık kalma, sac/makine sınırı aşımı, eksik IHS, hız; delme sayısı ve tahmini süre
+- **Kaldığı yerden devam**: ark sönerse torcun konumuna en yakın noktadan IHS + delmeyle devam
 - Çerçeve Gez (önce güvenli Z), Kuru Çalıştır (torç ateşlenmez)
 - Hazır makrolar: torç testi, yoklama testi, Z sıfırlama (IHS)
 - Otomatik güncelleme kapalı (resmi OpenBuilds sürümüyle değiştirilmez)

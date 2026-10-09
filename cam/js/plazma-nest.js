@@ -665,6 +665,10 @@
       try { if (NS.active) g = reorderGcode(g); } catch (e) { console.error('Plazma kesim sırası hatası, orijinal sıra kullanıldı', e); }
       try {
         var sh = NS.active && st.result && st.result.sheets[NS.active.idx];
+        if (sh) { // CONTROL iş öncesi kontrol: kesim sac sınırları içinde mi
+          var sb = ringsBBox(sheetDef(sh));
+          g = '; PLAZMA-SAC: X' + fmt(sb[0]) + ' Y' + fmt(sb[1]) + ' X' + fmt(sb[2]) + ' Y' + fmt(sb[3]) + ' (' + sh.name + ')\n' + g;
+        }
         var rem = sh && sh.remnant && st.remnants.filter(function(r) { return r.id === sh.sheetId; })[0];
         if (rem && rem.digitized) {
           var hdr = '; PLAZMA: HIZALAMA YOK (torcla tanitilmis artik sac: ' + rem.name + ')\n' +

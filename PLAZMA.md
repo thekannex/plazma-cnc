@@ -34,6 +34,9 @@ OpenBuilds CONTROL + OpenBuilds CAM'in tek pencerede birleşmiş, FluidNC plazma
 | Kontur sonu bindirme | Settings → Advanced | mm, 0 = kapalı (öneri 1–2 mm) |
 | Küçük delik yavaşlatma | Settings → Advanced | Sınır (mm) ve hız (%). 0 = kapalı (öneri: malzeme kalınlığının ~2.5 katı, %60) |
 
+| Malzeme kütüphanesi | Şerit → Kesim Tablosu → **Malzemeler**; toolpath penceresinde **Plazma: Malzeme** | Malzeme/kalınlık seçilince kerf, hız, delme yüksekliği, delme bekleme, kesim yüksekliği ve lead-in dolar. Akım ve hava G-code'a not olarak yazılır, CONTROL çalıştırmadan önce gösterir. Tablo değişince o malzemeyi kullanan toolpath'ler güncellenir. Örnek değerler ~45 A içindir, kendi makinenize göre düzeltin |
+| Mikro bağlantı (köprü) | Toolpath penceresi → **Plazma: Mikro bağlantı** (adet, mm) | Dış konturlarda parçayı sacta tutan kesilmemiş köprüler (ızgaralı tabla için). Köprüde torç söner, delme yüksekliğine kalkar, köprü sonunda yeniden deler. Köprüler köşelerden düz kenarlara kaydırılır. Delikler (iç kesim) etkilenmez. 0 = kapalı |
+
 Yerleşim araçlarından sonra toolpath'ler ve G-code kendiliğinden yeniden hesaplanır. Hepsi **Undo** ile geri alınabilir.
 
 ### CAM — Çizim ve düzenleme
@@ -72,6 +75,12 @@ Sacın sol alt köşesi makinede iş sıfırı (0,0) olmalıdır. Artık saclard
 
 Paneller açıkken jog kullanılabilir (pencere değil, yüzen panel).
 
+### CONTROL — İş öncesi kontrol ve kaldığı yerden devam
+| Özellik | Nerede | Not |
+|---|---|---|
+| İş öncesi kontrol | **Çalıştır**'a basınca kendiliğinden | Hata: torç sonda açık kalıyor, torç açıkken G0, hızsız (F) kesim. Uyarı: torç hiç açılmıyor, IHS bazı delmelerde eksik, kesim iş sıfırının solunda/altında, nesting sacının dışına taşma, makine sınırı (30/31) aşımı, 10'dan hızlı kesim. Ayrıca malzeme ayarları (akım/hava), delme sayısı, kesim uzunluğu ve tahmini süre. Hata varsa "Hataları gördüm" işaretlenmeden çalışmaz |
+| Kaldığı Yerden | Machine Control → Plazma grubu | Ark söndüyse / iş durduysa: torcun konumuna en yakın nokta (2 mm geriden) seçili gelir. Kontur ve konum kaydırıcıyla değiştirilir, 3B görünümde turuncu/kırmızı gösterilir. **Başı**: konturu IHS ve delmeyle baştan keser. Ortadan: torç noktaya gider, IHS + delme yapar, kalanı keser. Yaylarda yayın başından devam edilir. İş öncesi kontrol ve sac hizalamadan geçerek gönderilir |
+
 ## Makinede ilk test sırası (torç kapalı → açık)
 
 1. Bağlan, `$H` / home, iş sıfırını ayarla.
@@ -82,6 +91,7 @@ Paneller açıkken jog kullanılabilir (pencere değil, yüzen panel).
 6. **Kuru Çalıştır**: tüm yol torç yanmadan gezilmeli.
 7. **Torç Testi** makrosu (hurda sac üzerinde): 0.5 sn ark.
 8. Gerçek kesim.
+9. **Kaldığı Yerden** denemesi: kesimi ortada durdurun (torç kapanır), Kaldığı Yerden → önerilen noktayı kontrol edin → devam.
 
 ## Bilinen sınırlar / yapılmayanlar
 - THC (kesim sırasında yükseklik takibi) yok, FluidNC donanımı gerektirir.
