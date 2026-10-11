@@ -132,6 +132,33 @@
     else if (a.ons.length && !a.issues.ihsHave) out.info.push('IHS (G38.2) kullanılmıyor: Z sıfırının sac üstünde olduğundan emin olun.');
     if (a.issues.special.length) out.warn.push('Plazmada beklenmeyen komut (G28/G30/M6): satır ' + ln(a.issues.special) + '.');
 
+    // Kesim sırası: bir kontur, içinde bulunduğu konturdan SONRA kesiliyorsa parça önce düşer / kayar
+    var conts = [], cur = null, onAt = {};
+    a.ons.forEach(function(e) { onAt[e.idx] = e; });
+    a.info.forEach(function(f, i) {
+      var o = onAt[i];
+      if (o && !o.joint) { cur = []; conts.push(cur); }
+      if (cur && f.on && f.mode >= 1 && f.len > 0) { if (!cur.length) cur.push({ x: f.x0, y: f.y0 }); cur.push({ x: f.x1, y: f.y1 }); }
+    });
+    var late = 0;
+    var boxes = conts.map(function(p) { var b = [Infinity, Infinity, -Infinity, -Infinity]; p.forEach(function(q) { b[0] = Math.min(b[0], q.x); b[1] = Math.min(b[1], q.y); b[2] = Math.max(b[2], q.x); b[3] = Math.max(b[3], q.y); }); return b; });
+    conts.forEach(function(pi, i) {
+      if (pi.length < 4) return;
+      var bx = boxes[i];
+      for (var j = i + 1; j < conts.length; j++) {
+        var pj = conts[j];
+        if (pj.length < 2) continue;
+        var probe = pj[Math.floor(pj.length / 2)], c = false;
+        if (probe.x < bx[0] || probe.x > bx[2] || probe.y < bx[1] || probe.y > bx[3]) continue;
+        for (var m = 0, n = pi.length - 1; m < pi.length; n = m++) {
+          var p1 = pi[m], p2 = pi[n];
+          if (((p1.y > probe.y) !== (p2.y > probe.y)) && (probe.x < (p2.x - p1.x) * (probe.y - p1.y) / (p2.y - p1.y) + p1.x)) c = !c;
+        }
+        if (c) late++;
+      }
+    });
+    if (late) out.warn.push(late + ' kontur, içinde bulunduğu dış konturdan <b>sonra</b> kesiliyor (delik ya da içteki parça). Parça kesilince kayabilir, delikler kaçar. CAM\'de delik toolpath\'ini dış konturun üstüne alın.');
+
     var gp = (typeof grblParams !== 'undefined' && grblParams) ? grblParams : {};
     var fmax = parseFloat(gp.$110) || 0;
     if (fmax && a.maxF > fmax * 1.001) out.warn.push('İstenen hız ' + fmt(a.maxF) + ' mm/dk, makinenin X azami hızı ($110) ' + fmt(fmax) + ' mm/dk: kesim daha yavaş olur, kesim kalitesi değişebilir.');

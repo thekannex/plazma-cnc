@@ -135,8 +135,9 @@
           if (arc) lineOut[cuts[0].idx] = arcLineFrom(lineOut[cuts[0].idx], P0, arc);
         } else if (ctx.scrap !== null) {
           // Lead-in yok (delme kontur üstünde): hurda tarafında yeni yay lead-in.
-          // Dış kesimdeki iç delikler (tek derinlik) için hurda tarafı içeridir.
-          var want = (ctx.scrap === 'inside') !== (ctx.depth % 2 === 1);
+          // CAM 'outside' işleminde her konturu dışa ofsetler (iç içe olanları da), 'inside' işleminde içe:
+          // hurda tarafı işlemin kendisinden gelir.
+          var want = ctx.scrap === 'inside';
           arc = findArc(P0, P1, true, ctx.leadin, want, contour) || findArc(P0, P1, false, ctx.leadin, want, contour);
           if (arc) {
             prefix.push(arcLineFrom(lineOut[cuts[0].idx], P0, arc));
@@ -238,7 +239,11 @@
         if (typeof g === 'string' && op && op.indexOf('Plasma') === 0) {
           var scrap = op.indexOf('outside') > -1 ? 'outside' : op.indexOf('inside') > -1 ? 'inside' : null;
           var leadin = Math.abs(parseFloat(ud.camPlasmaLeadinDist)) || 3;
-          g = plazmaPostProcess(g, null, { scrap: scrap, leadin: leadin });
+          var cfg = settings();
+          // Küçük delik sınırı girilmemişse malzemenin kalınlığından: çap < 2,5 × kalınlık
+          var mat = window.PlazmaMaterial && PlazmaMaterial.get(ud.plazmaMaterial);
+          if (!cfg.holeDia && mat && parseFloat(mat.thick) > 0) cfg.holeDia = Math.max(6, 2.5 * parseFloat(mat.thick));
+          g = plazmaPostProcess(g, cfg, { scrap: scrap, leadin: leadin });
         }
       } catch (e) {
         console.error('Plazma son işleyici hatası, orijinal G-code kullanılıyor:', e);

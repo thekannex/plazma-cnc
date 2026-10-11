@@ -9,6 +9,21 @@
     "G90; Absolute\n" +
     "G10 L20 P1 Z-3; Set Z Zero - switch offset\n";
 
+  // V2: kesim kalitesi varsayılanları (bir kez): yay lead-in, 1 mm bindirme, kesim yönü, başlangıç noktası, önce delikler
+  try {
+    if (!localStorage.getItem("plazmaDefaultsV2")) {
+      localStorage.setItem("plazmaLeadinType", "arc");
+      if (!(parseFloat(localStorage.getItem("plazmaOvercut")) > 0)) localStorage.setItem("plazmaOvercut", "1");
+      if (!(parseFloat(localStorage.getItem("plazmaHoleFeed")) > 0)) localStorage.setItem("plazmaHoleFeed", "60");
+      localStorage.setItem("plazmaCutDir", "std");
+      localStorage.setItem("plazmaStartOpt", "on");
+      localStorage.setItem("plazmaHolesFirst", "on");
+      localStorage.setItem("plazmaDefaultsV2", "1");
+    }
+  } catch (e) {
+    console.warn("Plazma kalite varsayılanları uygulanamadı:", e);
+  }
+
   var FLAG = "plazmaDefaultsV1";
   try {
     if (localStorage.getItem(FLAG)) return;

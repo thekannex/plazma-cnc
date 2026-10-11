@@ -40,6 +40,9 @@ localParams = [
   ['plazmaOvercut', false], // Plazma CONTROL: kontur sonu bindirme (mm)
   ['plazmaHoleDia', false], // Plazma CONTROL: küçük delik sınırı (mm)
   ['plazmaHoleFeed', false], // Plazma CONTROL: küçük delik hızı (%)
+  ['plazmaCutDir', false], // Plazma: kesim yönü (dış saat yönü / delik tersi)
+  ['plazmaStartOpt', false], // Plazma: başlangıç noktasını köşeye / düz kenara al
+  ['plazmaHolesFirst', false], // Plazma: toolpath içinde önce delikler
   ['machinetype', true],
   ['performanceLimit', false]
 ];
@@ -713,6 +716,37 @@ $(document).ready(function() {
                              <label class="cell-sm-6">Plasma: Küçük Delik Hızı (%)<br><span class="text-small">Normal kesim hızının yüzdesi</span></label>
                              <div class="cell-sm-6">
                                <input type="number" step="5" min="10" max="100" class="form-control form-control-sm" id="plazmaHoleFeed" placeholder="60">
+                             </div>
+                         </div>
+
+                         <div class="row mb-2">
+                             <label class="cell-sm-6">Plasma: Kesim Yönü<br><span class="text-small">Plazma arkı döner; iyi kenar hareket yönünün sağında kalır. Standart girdap halkası: dış saat yönü, delik saat tersi</span></label>
+                             <div class="cell-sm-6">
+                               <select id="plazmaCutDir" class="form-control form-control-sm">
+                                 <option value="std">Standart (dış saat yönü, delik tersi)</option>
+                                 <option value="rev">Ters (ters girdaplı sarf)</option>
+                                 <option value="off">Değiştirme (orijinal)</option>
+                               </select>
+                             </div>
+                         </div>
+
+                         <div class="row mb-2">
+                             <label class="cell-sm-6">Plasma: Başlangıç Noktası<br><span class="text-small">Yay lead-in açıkken delme parçanın dış köşesine ya da en uzun düz kenara alınır</span></label>
+                             <div class="cell-sm-6">
+                               <select id="plazmaStartOpt" class="form-control form-control-sm">
+                                 <option value="on">Köşe / düz kenar (önerilen)</option>
+                                 <option value="off">Değiştirme (orijinal)</option>
+                               </select>
+                             </div>
+                         </div>
+
+                         <div class="row mb-2">
+                             <label class="cell-sm-6">Plasma: Önce Delikler<br><span class="text-small">Aynı toolpath içinde delikler ve içteki parçalar dış konturdan önce kesilir</span></label>
+                             <div class="cell-sm-6">
+                               <select id="plazmaHolesFirst" class="form-control form-control-sm">
+                                 <option value="on">Açık (önerilen)</option>
+                                 <option value="off">Kapalı (orijinal sıra)</option>
+                               </select>
                              </div>
                          </div>
 

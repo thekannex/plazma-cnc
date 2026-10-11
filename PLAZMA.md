@@ -30,14 +30,20 @@ OpenBuilds CONTROL + OpenBuilds CAM'in tek pencerede birleşmiş, FluidNC plazma
 | Torca Hizala | Plazma Yerleşim | Referans noktasını torcun şu anki konumuna taşır (CONTROL bağlı olmalı) |
 | Torç kapama komutu | Settings → Advanced | Varsayılan `M3 S0` |
 | IHS dizisi | Settings → Advanced | `G91 / G38.2 Z-50 F300 / G90 / G10 L20 P1 Z-3` (anahtar boşluğu 3 mm) |
-| Lead-in tipi: Yay | Settings → Advanced | Varsayılan **Düz** (orijinal). Yay seçilince: kontura teğet giriş; CAM'in lead-in koyamadığı konturlara da hurda tarafında lead-in eklenir |
+| Lead-in tipi: Yay | Settings → Advanced | Varsayılan **Yay** (kalite varsayılanları, bindirme 1 mm). Yay seçilince: kontura teğet giriş; CAM'in lead-in koyamadığı konturlara da hurda tarafında lead-in eklenir |
 | Kontur sonu bindirme | Settings → Advanced | mm, 0 = kapalı (öneri 1–2 mm) |
 | Küçük delik yavaşlatma | Settings → Advanced | Sınır (mm) ve hız (%). 0 = kapalı (öneri: malzeme kalınlığının ~2.5 katı, %60) |
+| Kesim yönü | Settings → Advanced → Plasma: Kesim Yönü | Varsayılan **Standart**: dış konturlar saat yönünde, delikler saat tersine (iyi kenar hareket yönünün sağında kalır). Ters girdaplı sarf için **Ters** |
+| Başlangıç noktası | Settings → Advanced → Plasma: Başlangıç Noktası | Yay lead-in açıkken delme parçanın dış köşesine, yoksa en uzun düz kenarın ortasına alınır; eğride / iç köşede giriş izi kalmaz |
+| Önce delikler | Settings → Advanced → Plasma: Önce Delikler | Aynı toolpath içinde en içteki konturlar önce, aynı seviyede en yakın kontur. Delik toolpath'i dış toolpath'ten sonraysa CAM ve CONTROL uyarır |
+| Otomatik küçük delik | Malzeme seçiliyse | Küçük delik sınırı girilmemişse çapı < 2,5 × sac kalınlığı olan delikler yavaş kesilir |
 
 | Malzeme kütüphanesi | Şerit → Kesim Tablosu → **Malzemeler**; toolpath penceresinde **Plazma: Malzeme** | Malzeme/kalınlık seçilince kerf, hız, delme yüksekliği, delme bekleme, kesim yüksekliği ve lead-in dolar. Akım ve hava G-code'a not olarak yazılır, CONTROL çalıştırmadan önce gösterir. Tablo değişince o malzemeyi kullanan toolpath'ler güncellenir. Örnek değerler 60 A hava plazması içindir (1–15 mm siyah sac, paslanmaz, alüminyum). Kendi torç/sarf tablonuza göre düzeltin. Daha önce tabloyu kaydettiyseniz yeni örnekler için **Örnek tabloyu yükle** |
 | Mikro bağlantı (köprü) | Toolpath penceresi → **Plazma: Mikro bağlantı** (adet, mm) | Dış konturlarda parçayı sacta tutan kesilmemiş köprüler (ızgaralı tabla için). Köprüde torç söner, delme yüksekliğine kalkar, köprü sonunda yeniden deler. Köprüler köşelerden düz kenarlara kaydırılır. Delikler (iç kesim) etkilenmez. 0 = kapalı |
 
 Yerleşim araçlarından sonra toolpath'ler ve G-code kendiliğinden yeniden hesaplanır. Hepsi **Undo** ile geri alınabilir.
+
+> Delikleri her zaman ayrı bir **Plasma: Vector (path inside)** toolpath'ine alın: dış (outside) işlem iç içe konturları da dışa ofsetler, delikler kerf kadar büyük çıkar (CAM uyarır).
 
 ### CAM — Çizim ve düzenleme
 | Özellik | Nerede | Not |

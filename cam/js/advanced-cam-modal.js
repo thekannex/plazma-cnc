@@ -816,7 +816,7 @@ function setupJob(i) {
     //$('#tRampPlunge' + i).val(lastused.tRampPlunge);
     $('#tplottertype' + i).val(lastused.plotterType).prop('selected', true);
     $('#tpenup' + i).val(lastused.camPenUp);
-    $('#tpentime' + i).val(lasstused.camPenTime);
+    $('#tpentime' + i).val(lastused.camPenTime);
     $('#tpendown' + i).val(lastused.camPenDown);
     $('#tpenupz' + i).val(lastused.camPenUpZ);
     $('#tpendownz' + i).val(lastused.camPenDownZ);
