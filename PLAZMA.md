@@ -34,7 +34,7 @@ OpenBuilds CONTROL + OpenBuilds CAM'in tek pencerede birleşmiş, FluidNC plazma
 | Kontur sonu bindirme | Settings → Advanced | mm, 0 = kapalı (öneri 1–2 mm) |
 | Küçük delik yavaşlatma | Settings → Advanced | Sınır (mm) ve hız (%). 0 = kapalı (öneri: malzeme kalınlığının ~2.5 katı, %60) |
 
-| Malzeme kütüphanesi | Şerit → Kesim Tablosu → **Malzemeler**; toolpath penceresinde **Plazma: Malzeme** | Malzeme/kalınlık seçilince kerf, hız, delme yüksekliği, delme bekleme, kesim yüksekliği ve lead-in dolar. Akım ve hava G-code'a not olarak yazılır, CONTROL çalıştırmadan önce gösterir. Tablo değişince o malzemeyi kullanan toolpath'ler güncellenir. Örnek değerler ~45 A içindir, kendi makinenize göre düzeltin |
+| Malzeme kütüphanesi | Şerit → Kesim Tablosu → **Malzemeler**; toolpath penceresinde **Plazma: Malzeme** | Malzeme/kalınlık seçilince kerf, hız, delme yüksekliği, delme bekleme, kesim yüksekliği ve lead-in dolar. Akım ve hava G-code'a not olarak yazılır, CONTROL çalıştırmadan önce gösterir. Tablo değişince o malzemeyi kullanan toolpath'ler güncellenir. Örnek değerler 60 A hava plazması içindir (1–15 mm siyah sac, paslanmaz, alüminyum). Kendi torç/sarf tablonuza göre düzeltin. Daha önce tabloyu kaydettiyseniz yeni örnekler için **Örnek tabloyu yükle** |
 | Mikro bağlantı (köprü) | Toolpath penceresi → **Plazma: Mikro bağlantı** (adet, mm) | Dış konturlarda parçayı sacta tutan kesilmemiş köprüler (ızgaralı tabla için). Köprüde torç söner, delme yüksekliğine kalkar, köprü sonunda yeniden deler. Köprüler köşelerden düz kenarlara kaydırılır. Delikler (iç kesim) etkilenmez. 0 = kapalı |
 
 Yerleşim araçlarından sonra toolpath'ler ve G-code kendiliğinden yeniden hesaplanır. Hepsi **Undo** ile geri alınabilir.

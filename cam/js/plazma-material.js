@@ -7,20 +7,26 @@
   'use strict';
   var KEY = 'plazmaMaterials';
 
-  // Örnek değerler (~45 A hava plazması, siyah sac). Kendi makinenin kesim tablosuna göre düzeltilmeli.
+  // Örnek değerler: 60 A hava plazması, makineli torç, korumasız (unshielded) sarf. Başlangıç noktasıdır;
+  // kendi torç/sarf kesim tablona ve deneme kesimlerine göre düzelt. Kimlikler (id) eski tabloyla uyumlu tutuldu.
+  // [id, ad, kalınlık, kerf, hız mm/dk, delme yük., delme bekleme sn, kesim yük., lead-in, akım A, hava bar, not]
   var DEFAULTS = [
-    ['Siyah sac 1 mm', 1, 1.0, 5500, 3.8, 0.1, 1.5, 3, 25, 5.0],
-    ['Siyah sac 2 mm', 2, 1.2, 4000, 3.8, 0.2, 1.5, 3, 30, 5.0],
-    ['Siyah sac 3 mm', 3, 1.4, 2800, 3.8, 0.4, 1.5, 4, 40, 5.5],
-    ['Siyah sac 4 mm', 4, 1.5, 2200, 3.8, 0.5, 1.5, 4, 45, 5.5],
-    ['Siyah sac 5 mm', 5, 1.6, 1700, 4.0, 0.6, 1.5, 5, 45, 5.5],
-    ['Siyah sac 6 mm', 6, 1.7, 1300, 4.0, 0.7, 1.5, 5, 45, 5.5],
-    ['Siyah sac 8 mm', 8, 1.8, 900, 4.5, 1.0, 1.5, 6, 45, 5.5],
-    ['Siyah sac 10 mm', 10, 2.0, 600, 5.0, 1.4, 1.5, 7, 45, 5.5],
-    ['Paslanmaz 2 mm', 2, 1.2, 3000, 3.8, 0.3, 1.5, 3, 35, 5.0],
-    ['Alüminyum 3 mm', 3, 1.5, 3000, 3.8, 0.3, 1.5, 4, 40, 5.5]
-  ].map(function(r, i) {
-    return { id: 'm' + (i + 1), name: r[0], thick: r[1], kerf: r[2], feed: r[3], pierceH: r[4], pierceD: r[5], cutH: r[6], leadin: r[7], amps: r[8], air: r[9], note: '' };
+    ['m1', 'Siyah sac 1 mm', 1, 1.2, 8000, 3.0, 0.1, 1.5, 3, 40, 5.5, 'İnce sac: akımı düşürmek çarpılmayı azaltır'],
+    ['m2', 'Siyah sac 2 mm', 2, 1.3, 6500, 3.0, 0.2, 1.5, 3, 50, 5.5, ''],
+    ['m3', 'Siyah sac 3 mm', 3, 1.5, 5000, 3.8, 0.3, 1.5, 4, 60, 5.5, ''],
+    ['m4', 'Siyah sac 4 mm', 4, 1.6, 4000, 3.8, 0.4, 1.5, 4, 60, 5.5, ''],
+    ['m5', 'Siyah sac 5 mm', 5, 1.7, 3000, 3.8, 0.5, 1.5, 5, 60, 5.5, ''],
+    ['m6', 'Siyah sac 6 mm', 6, 1.8, 2300, 3.8, 0.6, 1.5, 5, 60, 5.5, ''],
+    ['m7', 'Siyah sac 8 mm', 8, 1.9, 1500, 4.5, 0.8, 1.5, 6, 60, 5.5, ''],
+    ['m8', 'Siyah sac 10 mm', 10, 2.0, 1000, 4.5, 1.0, 1.5, 7, 60, 5.5, ''],
+    ['m11', 'Siyah sac 12 mm', 12, 2.1, 700, 5.0, 1.3, 1.5, 8, 60, 5.5, 'Delme sınırı: nozul ömrü kısalır'],
+    ['m12', 'Siyah sac 15 mm', 15, 2.3, 450, 6.0, 1.8, 1.5, 10, 60, 5.5, 'Kenardan başlatma önerilir'],
+    ['m9', 'Paslanmaz 2 mm', 2, 1.3, 5000, 3.0, 0.2, 1.5, 3, 50, 5.5, ''],
+    ['m13', 'Paslanmaz 3 mm', 3, 1.5, 3800, 3.8, 0.3, 1.5, 4, 60, 5.5, ''],
+    ['m10', 'Alüminyum 3 mm', 3, 1.6, 5000, 3.8, 0.3, 1.5, 4, 60, 5.5, ''],
+    ['m14', 'Alüminyum 6 mm', 6, 1.9, 2500, 3.8, 0.5, 1.5, 5, 60, 5.5, '']
+  ].map(function(r) {
+    return { id: r[0], name: r[1], thick: r[2], kerf: r[3], feed: r[4], pierceH: r[5], pierceD: r[6], cutH: r[7], leadin: r[8], amps: r[9], air: r[10], note: r[11] };
   });
 
   // k: kütüphane alanı, input: toolpath penceresindeki alan (yoksa sadece not)
@@ -165,7 +171,7 @@
       '#pmBox .pm-f{display:flex;align-items:center;padding:8px 12px;border-top:1px solid #ddd;}' +
       '</style>');
     ov = $('<div id="pmOv"><div id="pmBox"><div class="pm-h"><b><i class="fas fa-layer-group" style="color:#ff6a00"></i> Malzeme Kütüphanesi (Kesim Tablosu)</b><span class="pm-i" data-a="close" title="Kapat">✕</span></div>' +
-      '<div class="pm-b"><div style="color:#666;margin-bottom:6px">Değerler örnektir; makinenin kesim tablosuna ve deneme kesimlerine göre düzeltin. Akım ve hava basıncı makinede elle ayarlanır, G-code\'a not olarak yazılır.</div><table id="pmTable"></table></div>' +
+      '<div class="pm-b"><div style="color:#666;margin-bottom:6px">Değerler 60 A hava plazması için örnektir; torcunun / sarfının kesim tablosuna ve deneme kesimlerine göre düzeltin. Akım ve hava basıncı makinede elle ayarlanır, G-code\'a not olarak yazılır.</div><table id="pmTable"></table></div>' +
       '<div class="pm-f"><button class="pm-btn" data-a="add">+ Yeni malzeme</button><button class="pm-btn" data-a="reset" title="Örnek tabloya dön">Örnek tabloyu yükle</button><span style="flex:1"></span>' +
       '<button class="pm-btn" data-a="close">İptal</button><button class="pm-btn pri" data-a="save">Kaydet</button></div></div></div>');
     $('body').append(ov);
