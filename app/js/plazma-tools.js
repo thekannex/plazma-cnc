@@ -12,6 +12,8 @@
     return true;
   }
 
+  window.plazmaMachineReady = machineReady;
+
   function askParams(title, withSpeed, cb) {
     var z = getNum('plazmaDrySafeZ', 10), f = getNum('plazmaFrameSpeed', 3000);
     Metro.dialog.create({

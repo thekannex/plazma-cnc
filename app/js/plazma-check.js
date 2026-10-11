@@ -6,7 +6,6 @@
 // plazmaAnalyze() "Kaldığı yerden devam" tarafından da kullanılır.
 (function() {
   'use strict';
-  var NO_ALIGN = /PLAZMA:\s*HIZALAMA YOK/i;
 
   function ls(k, d) { try { var v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } }
   function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
@@ -18,10 +17,10 @@
   // Torç: M3/M4 + S>0 = açık; M5 veya S0 = kapalı (FluidNC'de M3 aktifken S değeri torcu yakar/söndürür).
   window.plazmaAnalyze = function(src) {
     var lines = src.split(/\r?\n/);
-    var x = 0, y = 0, z = 0, rel = false, mode = 0, f = null, dir = false, s = 0, inch = false, wcs = null;
-    var ihsSinceOff = false, lastF0 = null;
+    var x = 0, y = 0, rel = false, mode = 0, f = null, dir = false, s = 0, inch = false, wcs = null;
+    var ihsSinceOff = false, TAU = 2 * Math.PI;
     var r = {
-      lines: lines, info: [], ons: [], cutLen: 0, rapidLen: 0, cutTime: 0, rapidTime: 0, dwell: 0, probes: 0,
+      lines: lines, info: [], ons: [], cutLen: 0, rapidLen: 0, cutTime: 0, dwell: 0, probes: 0,
       maxF: 0, all: null, cut: null, issues: { rapidOn: [], noFeed: [], endOn: false, ihsMissing: 0, ihsHave: 0, special: [] },
       materials: [], sheet: null
     };
@@ -31,10 +30,12 @@
     }
     lines.forEach(function(line, idx) {
       var ci = line.search(/[;(]/), code = (ci >= 0 ? line.slice(0, ci) : line).toUpperCase(), cmt = ci >= 0 ? line.slice(ci) : '';
-      var mm = /^;\s*Malzeme:\s*(.*)$/i.exec(line.trim());
-      if (mm && r.materials.indexOf(mm[1]) < 0) r.materials.push(mm[1]);
-      var sh = /PLAZMA-SAC:\s*X(-?[\d.]+)\s*Y(-?[\d.]+)\s*X(-?[\d.]+)\s*Y(-?[\d.]+)/i.exec(line);
-      if (sh) r.sheet = { x0: +sh[1], y0: +sh[2], x1: +sh[3], y1: +sh[4] };
+      if (cmt) { // notlar: malzeme ayarı ve nesting sac sınırı
+        var mm = /^;\s*Malzeme:\s*(.*\S)/i.exec(cmt);
+        if (mm && !code.trim() && r.materials.indexOf(mm[1]) < 0) r.materials.push(mm[1]);
+        var sh = /PLAZMA-SAC:\s*X(-?[\d.]+)\s*Y(-?[\d.]+)\s*X(-?[\d.]+)\s*Y(-?[\d.]+)/i.exec(cmt);
+        if (sh) r.sheet = { x0: +sh[1], y0: +sh[2], x1: +sh[3], y1: +sh[4] };
+      }
       var words = code.replace(/\s+/g, '').match(/[A-Z][-+]?(\d+\.?\d*|\.\d+)/g) || [];
       var w = {}, gs = [], ms = [];
       words.forEach(function(t) {
@@ -42,7 +43,7 @@
         if (l === 'G') gs.push(v); else if (l === 'M') ms.push(v); else w[l] = v;
       });
       var wasOn = dir && s > 0;
-      var info = { x0: x, y0: y, z0: z, mode: null, on: wasOn, f: f };
+      var info = { x0: x, y0: y, mode: null };
       var nonModal = false;
       gs.forEach(function(v) {
         if (v === 90) rel = false; else if (v === 91) rel = true;
@@ -73,17 +74,21 @@
       if (!nonModal && (hasXY || hasZ)) {
         var nx = 'X' in w ? (rel ? x + w.X * k : w.X * k) : x;
         var ny = 'Y' in w ? (rel ? y + w.Y * k : w.Y * k) : y;
-        var nz = hasZ ? (rel ? z + w.Z * k : w.Z * k) : z;
-        info.mode = mode;
+        info.mode = mode; info.xy = hasXY;
         var len = Math.hypot(nx - x, ny - y);
         if ((mode === 2 || mode === 3) && ('I' in w || 'J' in w)) {
           var cx = x + (w.I || 0) * k, cy = y + (w.J || 0) * k, rad = Math.hypot(x - cx, y - cy);
-          var a0 = Math.atan2(y - cy, x - cx), a1 = Math.atan2(ny - cy, nx - cx), TAU = 2 * Math.PI;
+          var a0 = Math.atan2(y - cy, x - cx), a1 = Math.atan2(ny - cy, nx - cx);
           var sw = mode === 3 ? ((a1 - a0) % TAU + TAU) % TAU : ((a0 - a1) % TAU + TAU) % TAU;
           if (sw < 1e-9) sw = TAU;
           len = rad * sw;
           info.arc = { cx: cx, cy: cy, r: rad, a0: a0, sweep: mode === 3 ? sw : -sw };
-          for (var q = 0; q <= 8; q++) { var a = a0 + info.arc.sweep * q / 8; grow('all', cx + rad * Math.cos(a), cy + rad * Math.sin(a)); if (on) grow('cut', cx + rad * Math.cos(a), cy + rad * Math.sin(a)); }
+          for (var q = 0; q < 4; q++) { // yayın süpürdüğü 0/90/180/270° uç noktaları
+            var aq = q * Math.PI / 2, dq = mode === 3 ? ((aq - a0) % TAU + TAU) % TAU : ((a0 - aq) % TAU + TAU) % TAU;
+            if (dq > sw) continue;
+            var qx = cx + rad * Math.cos(aq), qy = cy + rad * Math.sin(aq);
+            grow('all', qx, qy); if (on) grow('cut', qx, qy);
+          }
         }
         if (hasXY) {
           grow('all', x, y); grow('all', nx, ny);
@@ -98,9 +103,9 @@
         }
         if (mode !== 0 && hasZ && !hasXY && !f) r.issues.noFeed.push(idx);
         info.len = len;
-        x = nx; y = ny; z = nz;
+        x = nx; y = ny;
       }
-      info.x1 = x; info.y1 = y; info.z1 = z; info.on = on; info.f = f; info.rel = rel; info.inch = inch; info.wcs = wcs; info.modeAfter = mode;
+      info.x1 = x; info.y1 = y; info.on = on; info.f = f; info.rel = rel; info.inch = inch; info.wcs = wcs;
       r.info.push(info);
     });
     r.issues.endOn = dir && s > 0;
@@ -108,17 +113,9 @@
   };
 
   // ---------- Kontroller ----------
-  function machineSpace() {
-    var gp = (typeof grblParams !== 'undefined' && grblParams) ? grblParams : {};
-    var tx = parseFloat(gp.$130) || 0, ty = parseFloat(gp.$131) || 0;
-    if (typeof laststatus === 'undefined' || !laststatus.machine || !laststatus.comms || laststatus.comms.connectionStatus < 1) return null;
-    var p = laststatus.machine.position, o = p.offset || {};
-    var mx = parseFloat(p.work.x) + parseFloat(o.x || 0), my = parseFloat(p.work.y) + parseFloat(o.y || 0);
-    return { tx: tx, ty: ty, ox: parseFloat(o.x || 0), oy: parseFloat(o.y || 0), mx: mx, my: my };
-  }
-
   window.plazmaPreflight = function(src) {
-    var align = (typeof plazmaAlignAngle === 'function' && !NO_ALIGN.test(src)) ? plazmaAlignAngle() : 0;
+    var align = typeof plazmaAlignAngleFor === 'function' ? plazmaAlignAngleFor(src) : 0;
+    var gp = (typeof grblParams !== 'undefined' && grblParams) ? grblParams : {};
     var a = plazmaAnalyze(src);
     var out = { err: [], warn: [], info: [], a: a, align: align };
     function ln(list) { return list.slice(0, 3).map(function(i) { return i + 1; }).join(', ') + (list.length > 3 ? '…' : ''); }
@@ -159,7 +156,6 @@
     });
     if (late) out.warn.push(late + ' kontur, içinde bulunduğu dış konturdan <b>sonra</b> kesiliyor (delik ya da içteki parça). Parça kesilince kayabilir, delikler kaçar. CAM\'de delik toolpath\'ini dış konturun üstüne alın.');
 
-    var gp = (typeof grblParams !== 'undefined' && grblParams) ? grblParams : {};
     var fmax = parseFloat(gp.$110) || 0;
     if (fmax && a.maxF > fmax * 1.001) out.warn.push('İstenen hız ' + fmt(a.maxF) + ' mm/dk, makinenin X azami hızı ($110) ' + fmt(fmax) + ' mm/dk: kesim daha yavaş olur, kesim kalitesi değişebilir.');
 
@@ -174,14 +170,15 @@
     }
 
     // Makine sınırları (hizalama dönüşü dahil, tüm hareketler)
-    var m = machineSpace();
-    if (a.all && m && (m.tx || m.ty)) {
+    var m = typeof plazmaMachinePos === 'function' ? plazmaMachinePos() : null;
+    var tx = parseFloat(gp.$130) || 0, ty = parseFloat(gp.$131) || 0;
+    if (a.all && m && (tx || ty)) {
       var co = Math.cos(align * Math.PI / 180), si = Math.sin(align * Math.PI / 180), b = a.all;
       var pts = [[b.x0, b.y0], [b.x1, b.y0], [b.x1, b.y1], [b.x0, b.y1]].map(function(p) { return [p[0] * co - p[1] * si + m.ox, p[0] * si + p[1] * co + m.oy]; });
       var mx0 = Math.min.apply(null, pts.map(function(p) { return p[0]; })), mx1 = Math.max.apply(null, pts.map(function(p) { return p[0]; }));
       var my0 = Math.min.apply(null, pts.map(function(p) { return p[1]; })), my1 = Math.max.apply(null, pts.map(function(p) { return p[1]; }));
       var probs = [];
-      [['X', m.tx, mx0, mx1, m.mx], ['Y', m.ty, my0, my1, m.my]].forEach(function(ax) {
+      [['X', tx, mx0, mx1, m.x], ['Y', ty, my0, my1, m.y]].forEach(function(ax) {
         var T = ax[1]; if (!T) return;
         if (ax[3] - ax[2] > T + 0.5) { probs.push(ax[0] + ' boyu ' + fmt(ax[3] - ax[2]) + ' mm, makine hareketi ' + fmt(T) + ' mm'); return; }
         // makine alanının işareti şu anki konumdan tahmin edilir (Grbl: 0…-T, bazı FluidNC ayarları: 0…+T)
@@ -252,15 +249,10 @@
 
   if (typeof window.runJobFile === 'function') {
     var origRun = window.runJobFile;
-    window.runJobFile = function() {
-      var self = this, args = arguments;
-      var fromGlobal = typeof gcode === 'string' && !!gcode;
-      var src = fromGlobal ? gcode : (typeof editor !== 'undefined' ? editor.getValue() : '');
-      var go = function() {
-        var keep = gcode;
-        if (fromGlobal) gcode = src; // pencere açıkken gcode değişkeni geri alınmış olabilir
-        try { return origRun.apply(self, args); } finally { if (fromGlobal) gcode = keep; }
-      };
+    window.runJobFile = function(srcArg) { // runJobFile(src): başka bir G-code'u aynı yoldan gönder
+      var self = this, given = typeof srcArg === 'string';
+      var src = given ? srcArg : ((typeof gcode === 'string' && gcode) ? gcode : (typeof editor !== 'undefined' ? editor.getValue() : ''));
+      var go = function() { return origRun.apply(self, given ? [srcArg] : []); };
       var res;
       try { res = plazmaPreflight(src); } catch (e) { console.error('Plazma iş öncesi kontrol hatası', e); return go(); }
       var quiet = ls('plazmaCheckQuiet', '0') === '1';

@@ -220,9 +220,36 @@
     return best;
   }
 
+  // Nokta çokgenin içinde mi (çift-tek kuralı; çokgen kapanış noktası olsa da olmasa da)
+  function insidePoly(p, poly) {
+    var c = false;
+    for (var i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      var a = poly[i], b = poly[j];
+      if (((a.y > p.y) !== (b.y > p.y)) && (p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x)) c = !c;
+    }
+    return c;
+  }
+
+  // İç içelik derinliği: her halka kaç başka halkanın içinde (null halkalar atlanır, derinlik 0).
+  // Halkanın orta noktası örnek alınır; sınır kutusu ön elemesiyle büyük işlerde de hızlıdır.
+  function depths(rings) {
+    var boxes = rings.map(function(r) { return r ? bbox([r]) : null; });
+    return rings.map(function(r, i) {
+      if (!r) return 0;
+      var p = r[Math.floor(r.length / 2)], d = 0;
+      for (var j = 0; j < rings.length; j++) {
+        var b = boxes[j];
+        if (j === i || !b || p.x < b.x0 || p.x > b.x1 || p.y < b.y0 || p.y > b.y1) continue;
+        if (insidePoly(p, rings[j])) d++;
+      }
+      return d;
+    });
+  }
+
   window.PlazmaGeom = {
     P: P, dist: dist, ang: ang, arcPts: arcPts, circlePts: circlePts, arc3: arc3, rectPts: rectPts,
     polygonPts: polygonPts, slotPts: slotPts, rotate: rotate, isClosed: isClosed, polyLength: polyLength,
-    dedupe: dedupe, fillet: fillet, join: join, offset: offset, bbox: bbox, closestOnPoly: closestOnPoly
+    dedupe: dedupe, fillet: fillet, join: join, offset: offset, bbox: bbox, closestOnPoly: closestOnPoly,
+    insidePoly: insidePoly, depths: depths
   };
 })();

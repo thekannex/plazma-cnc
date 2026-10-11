@@ -873,12 +873,7 @@ io.on("connection", function(socket) {
   });
 
   socket.on("minimisetotray", function(data) {
-    // Plazma: kapat dugmesi tepsiye gizlemek yerine programi kapatir (onay arayuzde sorulur)
-    forceQuit = true;
-    if (appIcon) {
-      appIcon.destroy();
-    }
-    electronApp.exit(0);
+    jogWindow.hide();
   });
 
   socket.on("minimize", function(data) {

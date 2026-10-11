@@ -12,6 +12,8 @@
   function f4(v) { return (Math.round(v * 10000) / 10000).toFixed(4).replace(/\.?0+$/, '') || '0'; }
 
   window.plazmaAlignAngle = function() { return ls('plazmaAlignOn', '0') === '1' ? (parseFloat(ls('plazmaAlignAngle', '0')) || 0) : 0; };
+  // Bu G-code'a uygulanacak açı (torçla tanıtılmış artık sac işlerinde hizalama yok)
+  window.plazmaAlignAngleFor = function(src) { return NO_ALIGN.test(src || '') ? 0 : plazmaAlignAngle(); };
 
   // ---------- G-code döndürme ----------
   // Mutlak (G90) ve göreli (G91) XY hareketleri, yaylarda I/J vektörleri iş sıfırı etrafında döndürülür.
@@ -49,22 +51,24 @@
   };
 
   function rotateIfNeeded(src) {
-    var d = plazmaAlignAngle();
+    var d = plazmaAlignAngleFor(src);
     return d ? plazmaRotateGcode(src, d) : src;
   }
 
-  // Ana "Çalıştır": orijinal fonksiyon global gcode (büyük dosya) ya da editörü gönderir
+  // Ana "Çalıştır": orijinal fonksiyon global gcode (büyük dosya) ya da editörü gönderir.
+  // runJobFile(src) ile başka bir G-code da (ör. kaldığı yerden devam) aynı yoldan gönderilebilir.
   if (typeof window.runJobFile === 'function') {
     var origRun = window.runJobFile;
-    window.runJobFile = function() {
-      var d = plazmaAlignAngle();
-      var src = (typeof gcode === 'string' && gcode) ? gcode : editor.getValue();
+    window.runJobFile = function(srcArg) {
+      var self = this, given = typeof srcArg === 'string';
+      var src = given ? srcArg : ((typeof gcode === 'string' && gcode) ? gcode : editor.getValue());
+      var d = plazmaAlignAngleFor(src);
       var zero = /PLAZMA-SIFIR:\s*X\s*(-?[\d.]+)\s*Y\s*(-?[\d.]+)/i.exec(src);
       var go = function() {
-        if (!d || NO_ALIGN.test(src)) return origRun.apply(this, arguments);
+        if (!d && !given) return origRun.call(self);
         var keep = gcode;
-        gcode = plazmaRotateGcode(src, d); // orijinal fonksiyon gcode değişkeni doluysa onu gönderir
-        try { return origRun.apply(this, arguments); } finally { gcode = keep; }
+        gcode = d ? plazmaRotateGcode(src, d) : src; // orijinal fonksiyon gcode değişkeni doluysa onu gönderir
+        try { return origRun.call(self); } finally { gcode = keep; }
       };
       if (zero) {
         Metro.dialog.create({
@@ -99,11 +103,14 @@
   setInterval(wrapSocket, 1000);
 
   // ---------- konum ----------
+  // Makine (x, y), iş (wx, wy) koordinatları ve iş ofseti (ox, oy); bağlı değilse null
   function machinePos() {
     if (typeof laststatus === 'undefined' || !laststatus.machine || !laststatus.comms || laststatus.comms.connectionStatus < 1) return null;
-    var w = laststatus.machine.position.work, o = laststatus.machine.position.offset;
-    return { x: parseFloat(w.x) + parseFloat(o.x || 0), y: parseFloat(w.y) + parseFloat(o.y || 0) };
+    var w = laststatus.machine.position.work, o = laststatus.machine.position.offset || {};
+    var wx = parseFloat(w.x), wy = parseFloat(w.y), ox = parseFloat(o.x || 0), oy = parseFloat(o.y || 0);
+    return { x: wx + ox, y: wy + oy, wx: wx, wy: wy, ox: ox, oy: oy };
   }
+  window.plazmaMachinePos = machinePos;
   function needPos() {
     var p = machinePos();
     if (!p) toast('Makineye bağlı değil', 'bg-red fg-white');
@@ -111,13 +118,14 @@
   }
 
   // ---------- yüzen panel (jog paneli kullanılabilir kalsın diye modal değil) ----------
-  function panel(id, title, html) {
+  function panel(id, title, html, onClose) {
     $('#' + id).remove();
     var p = $('<div id="' + id + '" class="plazma-float"><div class="pf-head"><b>' + title + '</b><span class="pf-x" title="Kapat">✕</span></div><div class="pf-body">' + html + '</div></div>');
     $('body').append(p);
-    p.find('.pf-x').on('click', function() { p.remove(); });
+    p.find('.pf-x').on('click', function() { p.remove(); if (onClose) onClose(); });
     return p;
   }
+  window.plazmaPanel = panel;
   $('head').append('<style>' +
     '.plazma-float{position:fixed;right:16px;top:110px;width:340px;z-index:3000;background:#fff;border-radius:6px;box-shadow:0 4px 20px rgba(0,0,0,.35);border-top:4px solid #ff6a00;font-size:12px;color:#222;}' +
     '.plazma-float .pf-head{display:flex;align-items:center;padding:6px 10px;background:#f4f4f4;border-bottom:1px solid #ddd;}' +

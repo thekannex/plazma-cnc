@@ -33,38 +33,63 @@
   var FIELDS = [
     { k: 'name', t: 'Ad', w: 150, text: true },
     { k: 'thick', t: 'Kalınlık<br>mm', w: 60 },
-    { k: 'kerf', t: 'Kerf<br>mm', w: 55, input: 'tplasmakerf' },
-    { k: 'feed', t: 'Kesim hızı<br>mm/dk', w: 70, input: 'tspeed' },
-    { k: 'pierceH', t: 'Delme yük.<br>mm', w: 60, input: 'tplasmapierceheight' },
-    { k: 'pierceD', t: 'Delme bekl.<br>sn', w: 60, input: 'tplasmapiercedelay' },
-    { k: 'cutH', t: 'Kesim yük.<br>mm', w: 60, input: 'tplasmazheight' },
-    { k: 'leadin', t: 'Lead-in<br>mm', w: 55, input: 'tplasmaleadin' },
+    { k: 'kerf', t: 'Kerf<br>mm', w: 55, input: 'tplasmakerf', ud: 'camPlasmaKerf' },
+    { k: 'feed', t: 'Kesim hızı<br>mm/dk', w: 70, input: 'tspeed', ud: 'camFeedrate' },
+    { k: 'pierceH', t: 'Delme yük.<br>mm', w: 60, input: 'tplasmapierceheight', ud: 'camPlasmaPierceHeight' },
+    { k: 'pierceD', t: 'Delme bekl.<br>sn', w: 60, input: 'tplasmapiercedelay', ud: 'camPlasmaPierceDelay' },
+    { k: 'cutH', t: 'Kesim yük.<br>mm', w: 60, input: 'tplasmazheight', ud: 'camPlasmaZHeight' },
+    { k: 'leadin', t: 'Lead-in<br>mm', w: 55, input: 'tplasmaleadin', ud: 'camPlasmaLeadinDist' },
     { k: 'amps', t: 'Akım<br>A', w: 50 },
     { k: 'air', t: 'Hava<br>bar', w: 50 },
     { k: 'note', t: 'Not', w: 120, text: true }
   ];
 
+  // Liste bir kez okunur, kaydedilince yenilenir (G-code üretiminde ve her tuşta tekrar okunmasın)
+  var cache = null, byId = {};
   function load() {
-    try {
-      var a = JSON.parse(localStorage.getItem(KEY));
-      if (Array.isArray(a)) return a;
-    } catch (e) {}
-    return JSON.parse(JSON.stringify(DEFAULTS));
+    if (cache) return cache;
+    try { cache = JSON.parse(localStorage.getItem(KEY)); } catch (e) { cache = null; }
+    if (!Array.isArray(cache)) cache = JSON.parse(JSON.stringify(DEFAULTS));
+    byId = {};
+    cache.forEach(function(m) { byId[m.id] = m; });
+    return cache;
   }
-  function save(list) { try { localStorage.setItem(KEY, JSON.stringify(list)); } catch (e) {} }
-  function get(id) { return id ? load().filter(function(m) { return m.id === id; })[0] || null : null; }
+  function save(list) { try { localStorage.setItem(KEY, JSON.stringify(list)); } catch (e) {} cache = null; }
+  function get(id) { load(); return (id && byId[id]) || null; }
   function esc(s) { return String(s === undefined || s === null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
   function toast(m, c) { Metro.toast.create(m, null, 4000, c || 'bg-green fg-white'); }
 
-  // Toolpath userData'sına malzeme değerlerini yazar
+  // Toolpath userData'sına malzeme değerlerini yazar; bir değer değiştiyse true
   function applyToUserData(ud, m) {
+    var changed = false;
     ud.plazmaMaterial = m.id;
-    ud.camPlasmaKerf = String(m.kerf);
-    ud.camFeedrate = String(m.feed);
-    ud.camPlasmaPierceHeight = String(m.pierceH);
-    ud.camPlasmaPierceDelay = String(m.pierceD);
-    ud.camPlasmaZHeight = String(m.cutH);
-    ud.camPlasmaLeadinDist = String(m.leadin);
+    FIELDS.forEach(function(f) {
+      if (!f.ud || ud[f.ud] === String(m[f.k])) return;
+      ud[f.ud] = String(m[f.k]); changed = true;
+    });
+    return changed;
+  }
+
+  // ---------- Toolpath penceresine plazma satırları (malzeme, mikro bağlantı) ----------
+  // setupJob / updateCamUserData bir kez sarılır. inject(i): satırı ekler. read(i, ud): alanları userData'ya
+  // yazar; orijinal updateCamUserData'dan önce çalışır, böylece 'lastCamOperation' tek seferde kaydedilir.
+  var rowHooks = [];
+  window.plazmaToolpathRow = function(inject, read) { rowHooks.push({ inject: inject, read: read }); };
+  if (typeof window.setupJob === 'function') {
+    var origSetup = window.setupJob;
+    window.setupJob = function(i) {
+      try { return origSetup.apply(this, arguments); } finally {
+        rowHooks.forEach(function(h) { try { h.inject(i); } catch (e) { console.error('Plazma toolpath satırı', e); } });
+      }
+    };
+  }
+  if (typeof window.updateCamUserData === 'function') {
+    var origUpd = window.updateCamUserData;
+    window.updateCamUserData = function(i) {
+      var tp = toolpathsInScene[i];
+      if (tp) rowHooks.forEach(function(h) { try { h.read(i, tp.userData); } catch (e) { console.error('Plazma toolpath satırı', e); } });
+      return origUpd.apply(this, arguments);
+    };
   }
 
   function matLabel(m) {
@@ -115,25 +140,10 @@
     // Yeni toolpath'te son kullanılan malzeme seçiliyse değerleri ondan al
     if (!ud.camOperation && get(sel)) $('#tplazmamat' + i).trigger('change');
   }
-
-  if (typeof window.setupJob === 'function') {
-    var origSetup = window.setupJob;
-    window.setupJob = function(i) {
-      try { return origSetup.apply(this, arguments); } finally { try { inject(i); } catch (e) { console.error('Plazma malzeme satırı', e); } }
-    };
-  }
-  if (typeof window.updateCamUserData === 'function') {
-    var origUpd = window.updateCamUserData;
-    window.updateCamUserData = function(i) {
-      var r = origUpd.apply(this, arguments);
-      var s = $('#tplazmamat' + i);
-      if (s.length && toolpathsInScene[i]) {
-        toolpathsInScene[i].userData.plazmaMaterial = s.val() || '';
-        try { localStorage.setItem('lastCamOperation', JSON.stringify(toolpathsInScene[i].userData, inflatedReplacer)); } catch (e) {}
-      }
-      return r;
-    };
-  }
+  plazmaToolpathRow(inject, function(i, ud) {
+    var s = $('#tplazmamat' + i);
+    if (s.length) ud.plazmaMaterial = s.val() || '';
+  });
 
   // G-code'a malzeme notu (akım/hava makinede elle ayarlanır)
   if (typeof window.generateGcode === 'function') {
@@ -145,7 +155,9 @@
         var m = ud && String(ud.camOperation || '').indexOf('Plasma') === 0 && get(ud.plazmaMaterial);
         if (m && typeof g === 'string') {
           var note = '; Malzeme: ' + m.name + (m.amps ? ' | Akim ' + m.amps + ' A' : '') + (m.air ? ' | Hava ' + m.air + ' bar' : '') + (m.note ? ' | ' + m.note : '');
-          g = /^; Plasma Kerf:.*$/m.test(g) ? g.replace(/^(; Plasma Kerf:.*)$/m, '$1\n' + note) : note + '\n' + g;
+          var put = false;
+          g = g.replace(/^(; Plasma Kerf:.*)$/m, function(l) { put = true; return l + '\n' + note; });
+          if (!put) g = note + '\n' + g;
         }
       } catch (e) { console.error('Plazma malzeme notu', e); }
       return g;
@@ -215,18 +227,13 @@
     (toolpathsInScene || []).forEach(function(tp, i) {
       var m = tp.userData && get(tp.userData.plazmaMaterial);
       if (!m) return;
-      var before = JSON.stringify([tp.userData.camPlasmaKerf, tp.userData.camFeedrate, tp.userData.camPlasmaPierceHeight, tp.userData.camPlasmaPierceDelay, tp.userData.camPlasmaZHeight, tp.userData.camPlasmaLeadinDist]);
-      applyToUserData(tp.userData, m);
-      var after = JSON.stringify([tp.userData.camPlasmaKerf, tp.userData.camFeedrate, tp.userData.camPlasmaPierceHeight, tp.userData.camPlasmaPierceDelay, tp.userData.camPlasmaZHeight, tp.userData.camPlasmaLeadinDist]);
-      if (before !== after) { n++; try { toolpathPreview(i); } catch (e) {} }
+      if (applyToUserData(tp.userData, m)) { n++; try { toolpathPreview(i); } catch (e) {} }
     });
     toast('Malzeme kütüphanesi kaydedildi' + (n ? '. ' + n + ' toolpath yeni değerlerle güncellendi, G-code\'u yeniden oluşturun.' : ''));
   }
 
   window.PlazmaMaterial = {
-    list: load,
     get: get,
-    applyToUserData: applyToUserData,
     manage: function() {
       if (!ov) build();
       render(load());

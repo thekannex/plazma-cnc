@@ -10,24 +10,21 @@
 (function() {
   'use strict';
   var EPS = 0.01;
+  var d2 = PlazmaGeom.dist;
 
-  function opt(id, def) {
-    var v = ($('#' + id).val() || localStorage.getItem(id) || def || '').toString();
-    return v;
-  }
-  function d2(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+  function opt(id, def) { return String($('#' + id).val() || localStorage.getItem(id) || def || ''); }
   function area(r) {
     var s = 0;
     for (var i = 0; i < r.length; i++) { var a = r[i], b = r[(i + 1) % r.length]; s += a.x * b.y - b.x * a.y; }
     return s / 2;
   }
-  function inside(p, r) {
-    var c = false;
-    for (var i = 0, j = r.length - 1; i < r.length; j = i++) {
-      var a = r[i], b = r[j];
-      if (((a.y > p.y) !== (b.y > p.y)) && (p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x)) c = !c;
-    }
-    return c;
+  // G-code her yeniden üretildiğinde aynı uyarı tekrar tekrar çıkmasın
+  var lastWarn = {};
+  function warnOnce(key, html) {
+    var now = Date.now();
+    if (lastWarn[key] && now - lastWarn[key] < 8000) return;
+    lastWarn[key] = now;
+    Metro.toast.create(html, null, 9000, 'bg-orange fg-white');
   }
 
   // Line → { lead, ring (kapanış noktası olmadan) } ya da null (açık çizgi)
@@ -79,28 +76,22 @@
     var op = String(ud.camOperation || '');
     var dir = opt('plazmaCutDir', 'std'), start = opt('plazmaStartOpt', 'on') === 'on', first = opt('plazmaHolesFirst', 'on') === 'on';
     var arc = opt('plazmaLeadinType', 'straight') === 'arc';
-    var offsetOp = op.indexOf('inside') > -1 || op.indexOf('outside') > -1;
+    var isIn = op.indexOf('inside') > -1, isOut = op.indexOf('outside') > -1, offsetOp = isIn || isOut;
     if (dir === 'off' && !first && !(start && arc && offsetOp)) return grp;
     var lines = [];
     grp.traverse(function(c) { if (c.type === 'Line') lines.push(c); });
     if (!lines.length || lines.some(function(c) { return c.geometry && c.geometry.type === 'CircleGeometry'; })) return grp;
 
     var items = lines.map(function(c) { return { c: c, p: parse(c) }; });
-    var rings = items.map(function(it) { return it.p ? it.p.ring : null; });
+    var dep = PlazmaGeom.depths(items.map(function(it) { return it.p ? it.p.ring : null; }));
     items.forEach(function(it, i) {
       if (!it.p) return;
-      var probe = it.p.ring[0], depth = 0;
-      rings.forEach(function(r, j) { if (r && j !== i && inside(probe, r)) depth++; });
-      it.depth = depth;
+      it.depth = dep[i];
       // CAM 'outside' işlemi her konturu dışa, 'inside' içe ofsetler: kesim yönü gerçek ofsete göre
-      it.hole = op.indexOf('inside') > -1 ? true : op.indexOf('outside') > -1 ? false : depth % 2 === 1;
+      it.hole = isIn ? true : isOut ? false : dep[i] % 2 === 1;
     });
-    if (op.indexOf('outside') > -1 && !ud.plazmaNest && items.some(function(it) { return it.p && it.depth > 0; })) {
-      var now = Date.now();
-      if (!window.__plazmaNestWarn || now - window.__plazmaNestWarn > 8000) {
-        window.__plazmaNestWarn = now;
-        Metro.toast.create('<b>Dikkat:</b> Dış (outside) toolpath\'te iç içe konturlar var. Dış (outside) işlem delikleri de dışa ofsetler, delikler <b>kerf kadar büyük</b> kesilir. Delikleri ayrı bir "Plasma: Vector (path inside)" toolpath\'ine alın.', null, 9000, 'bg-orange fg-white');
-      }
+    if (isOut && !ud.plazmaNest && items.some(function(it) { return it.p && it.depth > 0; })) {
+      warnOnce('nested', '<b>Dikkat:</b> Dış (outside) toolpath\'te iç içe konturlar var. Dış (outside) işlem delikleri de dışa ofsetler, delikler <b>kerf kadar büyük</b> kesilir. Delikleri ayrı bir "Plasma: Vector (path inside)" toolpath\'ine alın.');
     }
     var mirror = grp.matrixWorld && grp.matrixWorld.determinant && grp.matrixWorld.determinant() < 0 ? -1 : 1;
     var leadin = Math.abs(parseFloat(ud.camPlasmaLeadinDist)) || 3;
@@ -173,11 +164,7 @@
           args[1] = plazmaQualityPrep(toolpathGrp, ud);
           // Delik (inside) toolpath'i bir dış (outside) toolpath'inden sonra mı? Parça önce kesilir, delikler kayar.
           if (ud.camOperation.indexOf('inside') > -1 && !ud.plazmaNest && toolpathsInScene.slice(0, index).some(function(t) { return String(t.userData.camOperation || '').indexOf('Plasma: Vector (path outside)') === 0; })) {
-            var now = Date.now();
-            if (!window.__plazmaOrderWarn || now - window.__plazmaOrderWarn > 8000) {
-              window.__plazmaOrderWarn = now;
-              Metro.toast.create('<b>Kesim sırası:</b> delik (inside) toolpath\'i dış kontur toolpath\'inden sonra. Parça önce kesilip kayarsa delikler kaçar. Delik toolpath\'ini ↑ düğmesiyle yukarı taşıyın.', null, 9000, 'bg-orange fg-white');
-            }
+            warnOnce('order', '<b>Kesim sırası:</b> delik (inside) toolpath\'i dış kontur toolpath\'inden sonra. Parça önce kesilip kayarsa delikler kaçar. Delik toolpath\'ini ↑ düğmesiyle yukarı taşıyın.');
           }
         }
       } catch (e) {

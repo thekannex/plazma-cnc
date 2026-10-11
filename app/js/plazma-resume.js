@@ -19,7 +19,10 @@
   function buildGroups(a) {
     var info = a.info, groups = [], prevOff = -1, parca = null, ev = [];
     var partAt = [];
-    a.lines.forEach(function(l, i) { var m = /;\s*-+\s*Par[çc]a\s+(\d+)/i.exec(l); if (m) parca = m[1]; partAt[i] = parca; });
+    a.lines.forEach(function(l, i) {
+      if (l.indexOf('---- Par') >= 0) { var m = /;\s*-+\s*Par[çc]a\s+(\d+)/i.exec(l); if (m) parca = m[1]; }
+      partAt[i] = parca;
+    });
     a.ons.forEach(function(o) {
       var off = o.idx + 1;
       while (off < info.length && info[off].on) off++;
@@ -31,7 +34,7 @@
       g.end = e.off;
       for (var i = e.on; i < e.off && i < info.length; i++) {
         var f = info[i];
-        if (f.on && f.mode >= 1 && f.mode <= 3 && f.len > 1e-6 && hasXY(a.lines[i])) {
+        if (f.on && f.xy && f.mode >= 1 && f.mode <= 3 && f.len > 1e-6) {
           g.segs.push({ idx: i, s0: g.len, s1: g.len + f.len, info: f });
           g.len += f.len;
         }
@@ -80,11 +83,9 @@
   }
 
   function torchWorkPos() {
-    if (typeof laststatus === 'undefined' || !laststatus.machine || !laststatus.comms || laststatus.comms.connectionStatus < 1) return null;
-    var w = laststatus.machine.position.work, x = parseFloat(w.x), y = parseFloat(w.y);
-    if (!isFinite(x) || !isFinite(y)) return null;
-    var src = R && R.src || '';
-    var d = (typeof plazmaAlignAngle === 'function' && !/PLAZMA:\s*HIZALAMA YOK/i.test(src)) ? plazmaAlignAngle() : 0;
+    var m = plazmaMachinePos();
+    if (!m || !isFinite(m.wx) || !isFinite(m.wy)) return null;
+    var x = m.wx, y = m.wy, d = plazmaAlignAngleFor(R && R.src);
     if (d) { // G-code döndürülerek gönderildi: konumu geri döndür
       var a = -d * Math.PI / 180, co = Math.cos(a), si = Math.sin(a);
       return { x: x * co - y * si, y: x * si + y * co };
@@ -130,30 +131,37 @@
   }
 
   // ---------- 3B işaretçi ----------
+  // Kontur çizgisi kontur değişince bir kez kurulur; konum kaydırıcısı sadece noktayı taşır.
   function clearMarker() {
-    if (marker && typeof scene !== 'undefined' && scene && scene.remove) scene.remove(marker);
+    if (!marker) return;
+    if (typeof scene !== 'undefined' && scene && scene.remove) scene.remove(marker);
+    marker.traverse(function(o) { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
     marker = null;
   }
   function showMarker(g, p) {
-    clearMarker();
     if (typeof THREE === 'undefined' || typeof scene === 'undefined' || !scene || !scene.add) return;
     try {
-      marker = new THREE.Group();
-      var pts = [];
-      g.segs.forEach(function(sg, k) {
-        var f = sg.info;
-        if (!k) pts.push(new THREE.Vector3(f.x0, f.y0, 0.5));
-        if (f.arc) for (var q = 1; q <= 12; q++) { var an = f.arc.a0 + f.arc.sweep * q / 12; pts.push(new THREE.Vector3(f.arc.cx + f.arc.r * Math.cos(an), f.arc.cy + f.arc.r * Math.sin(an), 0.5)); }
-        else pts.push(new THREE.Vector3(f.x1, f.y1, 0.5));
-      });
-      marker.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0xff6a00 })));
-      var bb = new THREE.Box3().setFromPoints(pts), size = Math.max(4, Math.min(20, Math.max(bb.max.x - bb.min.x, bb.max.y - bb.min.y) * 0.04));
-      var dot = new THREE.Mesh(new THREE.SphereGeometry(size / 2, 16, 12), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
-      dot.position.set(p.x, p.y, 1);
-      marker.add(dot);
-      scene.add(marker);
+      if (!marker || marker.userData.g !== g) {
+        clearMarker();
+        marker = new THREE.Group();
+        marker.userData.g = g;
+        var pts = [];
+        g.segs.forEach(function(sg, k) {
+          var f = sg.info;
+          if (!k) pts.push(new THREE.Vector3(f.x0, f.y0, 0.5));
+          if (f.arc) for (var q = 1; q <= 12; q++) { var an = f.arc.a0 + f.arc.sweep * q / 12; pts.push(new THREE.Vector3(f.arc.cx + f.arc.r * Math.cos(an), f.arc.cy + f.arc.r * Math.sin(an), 0.5)); }
+          else pts.push(new THREE.Vector3(f.x1, f.y1, 0.5));
+        });
+        marker.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0xff6a00 })));
+        var bb = new THREE.Box3().setFromPoints(pts), size = Math.max(4, Math.min(20, Math.max(bb.max.x - bb.min.x, bb.max.y - bb.min.y) * 0.04));
+        marker.userData.dot = new THREE.Mesh(new THREE.SphereGeometry(size / 2, 16, 12), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
+        marker.add(marker.userData.dot);
+      }
+      marker.userData.dot.position.set(p.x, p.y, 1);
+      if (marker.parent !== scene) scene.add(marker); // sahne temizlenmiş olabilir
     } catch (e) { console.warn('Devam işaretçisi çizilemedi', e); }
   }
+  function closePanel() { $('#plazmaResumePanel').remove(); clearMarker(); R = null; }
 
   // ---------- panel ----------
   function refresh() {
@@ -180,8 +188,8 @@
     var tp = torchWorkPos(), near = tp ? nearest(groups, tp.x, tp.y) : null;
     if (near && near.d < 50) R.sel = { g: near.g, s: Math.max(0, near.s - parseFloat(ls('plazmaResumeBack', '2'))) };
 
-    $('#plazmaResumePanel').remove();
-    var p = $('<div id="plazmaResumePanel" class="plazma-float"><div class="pf-head"><b><i class="fas fa-step-forward" style="color:#ff6a00"></i> Kaldığı Yerden Devam</b><span class="pf-x" title="Kapat">✕</span></div><div class="pf-body">' +
+    clearMarker();
+    var p = plazmaPanel('plazmaResumePanel', '<i class="fas fa-step-forward" style="color:#ff6a00"></i> Kaldığı Yerden Devam',
       '<div style="color:#666;margin-bottom:6px">' + (near && near.d < 50 ? 'Torcun bulunduğu yere en yakın nokta seçildi (' + ls('plazmaResumeBack', '2') + ' mm geriden).' : 'Devam edilecek konturu ve noktayı seçin.') + ' Turuncu çizgi ve kırmızı nokta 3B görünümde.</div>' +
       '<div class="step"><div style="display:flex;align-items:center;gap:4px">Kontur: <span id="prsGTxt" style="flex:1"></span>' +
       '<button class="pf-btn" data-a="g-">◀</button><button class="pf-btn" data-a="g+">▶</button></div>' +
@@ -193,10 +201,8 @@
       '<div id="prsInfo" style="margin:6px 0;line-height:1.35"></div>' +
       '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">Güvenli Z: <input type="text" id="prsZ" style="width:60px" value="' + ls('plazmaDrySafeZ', '10') + '"> mm</div>' +
       '<button class="pf-btn pri" data-a="go">▶ Buradan devam et</button>' +
-      '<div style="margin-top:6px;color:#666">Devam etmeden önce torcu kontrol edin (nozul/elektrot). İş, iş öncesi kontrol ve sac hizalamadan geçerek gönderilir.</div>' +
-      '</div></div>');
-    $('body').append(p);
-    p.find('.pf-x').on('click', function() { p.remove(); clearMarker(); });
+      '<div style="margin-top:6px;color:#666">Devam etmeden önce torcu kontrol edin (nozul/elektrot). İş, iş öncesi kontrol ve sac hizalamadan geçerek gönderilir.</div>',
+      function() { clearMarker(); R = null; });
     $('#prsG').on('input', function() { R.sel = { g: parseInt(this.value, 10) - 1, s: 0 }; refresh(); });
     $('#prsS').on('input', function() { R.sel.s = parseFloat(this.value) || 0; refresh(); });
     p.on('click', '[data-a]', function() {
@@ -216,21 +222,12 @@
   };
 
   function start() {
-    if (typeof laststatus === 'undefined' || !laststatus.comms || laststatus.comms.connectionStatus !== 2) {
-      toast(laststatus && laststatus.comms && laststatus.comms.connectionStatus > 2 ? 'Makine meşgul / alarmda. Önce işi durdurun.' : 'Makineye bağlı değil', 'bg-red fg-white');
-      return;
-    }
+    if (!plazmaMachineReady()) return;
     var z = parseFloat($('#prsZ').val());
     if (!(z > 0)) { toast('Güvenli Z geçersiz', 'bg-red fg-white'); return; }
     lsSet('plazmaDrySafeZ', z);
     var src = buildResume(R.a, R.groups[R.sel.g], R.sel.s, z);
-    $('#plazmaResumePanel').remove();
-    clearMarker();
-    var keep = gcode;
-    gcode = src; // Çalıştır yolundan gönder (iş öncesi kontrol + hizalama)
-    try { runJobFile(); } finally { gcode = keep; }
+    closePanel();
+    runJobFile(src); // Çalıştır yolundan gönder (iş öncesi kontrol + hizalama)
   }
-
-  window.plazmaBuildResume = buildResume; // test için
-  window.plazmaResumeGroups = buildGroups;
 })();

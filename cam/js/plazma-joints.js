@@ -3,50 +3,44 @@
 // düşüp torca takılmaz. Köprüde torç kapanır, delme yüksekliğine kalkar, köprünün sonuna gider,
 // yeniden deler (delme bekleme süresi ile) ve kesime devam eder.
 // Toolpath ayar penceresinde "Plazma: Mikro bağlantı" (adet, genişlik). Adet 0 = kapalı (çıktı birebir aynı).
-// İç kesimlerde (delikler) uygulanmaz.
+// İç kesimlerde (delikler) uygulanmaz. Yay lead-in / bindirme son işleyicisinden (plazma-leadio.js) SONRA
+// çalışır: script sırası cam/index.html'de leadio → material → joints olmalıdır.
 (function() {
   'use strict';
   var EPS = 0.01;
-  var reCut = /^\s*G0*1(?!\d)/i;
+  var G = window.PlazmaGeom;
 
-  function num(line, l) {
-    var m = new RegExp(l + '\\s*(-?[\\d.]+)', 'i').exec(line.replace(/;.*$/, ''));
-    return m ? parseFloat(m[1]) : null;
-  }
   function f4(v) { return v.toFixed(4); }
-  function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
-  function insidePoly(p, poly) {
-    var inside = false;
-    for (var i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-      var a = poly[i], b = poly[j];
-      if (((a.y > p.y) !== (b.y > p.y)) && (p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x)) inside = !inside;
-    }
-    return inside;
+  function strip(ln) { return ln.replace(/\s*;.*$/, ''); }
+  // Satırın X/Y/Z/F değerleri tek geçişte
+  function words(code) {
+    var w = {};
+    code.replace(/([XYZF])\s*(-?[\d.]+)/gi, function(m, l, v) { w[l.toUpperCase()] = parseFloat(v); });
+    return w;
   }
   function setXY(line, x, y) {
-    return line.replace(/\s*;.*$/, '').replace(/X\s*-?[\d.]+/i, 'X' + f4(x)).replace(/Y\s*-?[\d.]+/i, 'Y' + f4(y));
+    return strip(line).replace(/X\s*-?[\d.]+/i, 'X' + f4(x)).replace(/Y\s*-?[\d.]+/i, 'Y' + f4(y));
   }
 
   // G-code içindeki kesim bloklarını bulur (orijinal üreticinin "; Tool On" / "; Tool Off" notlarına göre)
   function findBlocks(lines) {
     var blocks = [], rapid = null, pierceZ = null, cur = null;
     for (var i = 0; i < lines.length; i++) {
-      var ln = lines[i];
+      var ln = lines[i], code = strip(ln);
       if (!cur) {
-        if (/^\s*G0*0(?!\d)/i.test(ln) && num(ln, 'X') !== null && num(ln, 'Y') !== null) { rapid = { x: num(ln, 'X'), y: num(ln, 'Y') }; pierceZ = null; }
-        if (/Move to Pierce Height/i.test(ln)) pierceZ = num(ln, 'Z');
-        if (/;\s*Tool On/i.test(ln) && rapid) cur = { on: i, onLine: ln.replace(/\s*;.*$/, ''), start: rapid, pierceZ: pierceZ, delay: null, plunge: null, cuts: [] };
+        if (/^\s*G0*0(?!\d)/i.test(code)) { var w0 = words(code); if ('X' in w0 && 'Y' in w0) { rapid = { x: w0.X, y: w0.Y }; pierceZ = null; } }
+        if (/Move to Pierce Height/i.test(ln)) pierceZ = words(code).Z;
+        if (/;\s*Tool On/i.test(ln) && rapid) cur = { on: i, onLine: code, start: rapid, pierceZ: pierceZ, delay: null, plunge: null, cuts: [] };
       } else if (/;\s*Tool Off/i.test(ln)) {
-        cur.off = i; cur.offLine = ln.replace(/\s*;.*$/, '');
+        cur.off = i; cur.offLine = code;
         blocks.push(cur); cur = null; rapid = null;
       } else if (/Pierce Delay/i.test(ln)) {
-        cur.delay = ln.replace(/\s*;.*$/, '');
+        cur.delay = code;
       } else if (/Direct Plunge/i.test(ln)) {
-        cur.plunge = ln.replace(/\s*;.*$/, '').trim();
-      } else if (/^\s*G0*[23](?!\d)/i.test(ln)) {
-        cur.cuts.push({ idx: i, arc: true, x: num(ln, 'X'), y: num(ln, 'Y'), f: num(ln, 'F') });
-      } else if (reCut.test(ln) && num(ln, 'X') !== null && num(ln, 'Y') !== null) {
-        cur.cuts.push({ idx: i, x: num(ln, 'X'), y: num(ln, 'Y'), f: num(ln, 'F') });
+        cur.plunge = code.trim();
+      } else if (/^\s*G0*[123](?!\d)/i.test(code)) {
+        var w = words(code), arc = !/^\s*G0*1(?!\d)/i.test(code);
+        if (arc || ('X' in w && 'Y' in w)) cur.cuts.push({ idx: i, arc: arc, x: 'X' in w ? w.X : null, y: 'Y' in w ? w.Y : null, f: w.F || null });
       }
     }
     return blocks;
@@ -57,21 +51,18 @@
     var c = b.cuts;
     if (c.length < 3 || c.some(function(k) { return k.x === null || k.y === null; })) return null;
     var lead = 0, P0;
-    if (!c[0].arc && dist(b.start, c[0]) > EPS && c.slice(1).some(function(k) { return dist(k, c[0]) < EPS; })) { lead = 1; P0 = c[0]; }
-    else if (c[0].arc) { lead = 1; P0 = c[0]; }
+    if (c[0].arc || (G.dist(b.start, c[0]) > EPS && c.slice(1).some(function(k) { return G.dist(k, c[0]) < EPS; }))) { lead = 1; P0 = c[0]; }
     else P0 = b.start;
     var close = -1;
-    for (var k = lead; k < c.length; k++) { if (k > lead && dist(c[k], P0) < EPS) { close = k; break; } }
+    for (var k = lead + 1; k < c.length; k++) { if (G.dist(c[k], P0) < EPS) { close = k; break; } }
     if (close < 0) return null;
     var segs = c.slice(lead, close + 1);
     if (segs.some(function(s) { return s.arc; })) return null; // kontur içinde yay varsa dokunma
-    var pts = [P0].concat(segs.map(function(s) { return { x: s.x, y: s.y }; }));
-    return { P0: P0, segs: segs, pts: pts };
+    return { segs: segs, pts: [P0].concat(segs.map(function(s) { return { x: s.x, y: s.y }; })) };
   }
 
   function processBlock(lines, b, ct, n, gap, edits) {
-    var per = 0, i;
-    for (i = 0; i < ct.pts.length - 1; i++) per += dist(ct.pts[i], ct.pts[i + 1]);
+    var per = G.polyLength(ct.pts), i;
     if (per < n * gap * 4) return false; // çok küçük kontur
     if (!b.pierceZ || !b.plunge) return false;
     var feed = null;
@@ -80,7 +71,7 @@
     // olaylar: köprü başı (torç kapanır) ve sonu (yeniden delme); merkezler eşit aralıklı, lead-in'den uzak
     // Köşeye denk gelen köprü düz bir kenarın içine kaydırılır (daire gibi kısa segmentli konturlarda olduğu yerde kalır)
     var segS = [], acc = 0;
-    for (i = 0; i < ct.pts.length - 1; i++) { var l = dist(ct.pts[i], ct.pts[i + 1]); segS.push([acc, acc + l]); acc += l; }
+    for (i = 0; i < ct.pts.length - 1; i++) { var l = G.dist(ct.pts[i], ct.pts[i + 1]); segS.push([acc, acc + l]); acc += l; }
     var margin = Math.max(gap, 5), ev = [], used = [];
     for (i = 0; i < n; i++) {
       var want = per * (i + 0.5) / n, c = want, best = Infinity;
@@ -96,7 +87,7 @@
     used.sort(function(a, b2) { return a - b2; }).forEach(function(c) { ev.push({ s: c - gap / 2, on: false }, { s: c + gap / 2, on: true }); });
     var e = 0, s0 = 0, pos = ct.pts[0], torch = true, needF = false;
     ct.segs.forEach(function(seg) {
-      var line = lines[seg.idx], A = pos, B = { x: seg.x, y: seg.y }, L = dist(A, B), s1 = s0 + L;
+      var line = lines[seg.idx], A = pos, B = { x: seg.x, y: seg.y }, L = G.dist(A, B), s1 = s0 + L;
       var out = [], touched = false;
       if (seg.f) feed = seg.f;
       function at(s) { var k = L > 0 ? Math.min(1, Math.max(0, (s - s0) / L)) : 1; return { x: A.x + (B.x - A.x) * k, y: A.y + (B.y - A.y) * k }; }
@@ -104,7 +95,7 @@
         var p = at(ev[e].s);
         touched = true;
         if (!ev[e].on) {
-          if (dist(p, A) > 1e-4) out.push(setXY(line, p.x, p.y) + (needF ? ' F' + feed : ''));
+          if (G.dist(p, A) > 1e-4) out.push(setXY(line, p.x, p.y) + (needF ? ' F' + feed : ''));
           needF = false;
           out.push(b.offLine + ' ; Plazma mikro baglanti: torc kapali', 'G0 Z' + f4(b.pierceZ));
           torch = false;
@@ -117,8 +108,7 @@
         e++;
       }
       if (torch && (touched || needF)) {
-        var hasF = /F\s*[\d.]/i.test(line.replace(/;.*$/, ''));
-        out.push(setXY(line, B.x, B.y) + (needF && !hasF ? ' F' + feed : ''));
+        out.push(setXY(line, B.x, B.y) + (needF && !seg.f ? ' F' + feed : ''));
         needF = false;
         touched = true;
       }
@@ -129,21 +119,18 @@
     return true;
   }
 
-  window.plazmaMicroJoints = function(g, n, width, kerf, allOuter) {
+  // allOuter: tüm konturlar dış kontur ('outside' işlemi hepsini dışa ofsetler); değilse tek derinlik = delik
+  window.plazmaMicroJoints = function(g, n, width, kerf, allOuter, pierceZ) {
     if (!(n > 0) || !(width > 0)) return g;
     var lines = g.split('\n'), blocks = findBlocks(lines), edits = {};
     var cts = blocks.map(contourOf);
+    var dep = allOuter ? null : G.depths(cts.map(function(ct) { return ct ? ct.pts : null; }));
     var gap = width + (kerf > 0 ? kerf : 0); // kesilmeden kalan malzeme = boşluk - kerf
     var done = 0;
     blocks.forEach(function(b, bi) {
-      var ct = cts[bi];
-      if (!ct) return;
-      if (!allOuter) { // tek derinlik = delik
-        var probe = ct.pts[Math.floor(ct.pts.length / 2)], depth = 0;
-        cts.forEach(function(o, oj) { if (o && oj !== bi && insidePoly(probe, o.pts)) depth++; });
-        if (depth % 2 === 1) return;
-      }
-      if (processBlock(lines, b, ct, n, gap, edits)) done++;
+      if (!cts[bi] || (dep && dep[bi] % 2 === 1)) return;
+      if (pierceZ > 0) b.pierceZ = pierceZ;
+      if (processBlock(lines, b, cts[bi], n, gap, edits)) done++;
     });
     if (!done) return g;
     var out = [];
@@ -161,7 +148,7 @@
         var op = ud && String(ud.camOperation || '');
         var n = ud ? parseInt(ud.plazmaJoints, 10) || 0 : 0;
         if (typeof g === 'string' && n > 0 && op.indexOf('Plasma') === 0 && op.indexOf('inside') < 0) {
-          g = plazmaMicroJoints(g, n, parseFloat(ud.plazmaJointW) || 1, parseFloat(ud.camPlasmaKerf) || 0, !!ud.plazmaNest);
+          g = plazmaMicroJoints(g, n, parseFloat(ud.plazmaJointW) || 1, parseFloat(ud.camPlasmaKerf) || 0, op.indexOf('outside') > -1, parseFloat(ud.camPlasmaPierceHeight));
         }
       } catch (e) { console.error('Plazma mikro bağlantı hatası, bağlantısız G-code kullanılıyor:', e); }
       return g;
@@ -169,7 +156,7 @@
   }
 
   // ---------- Toolpath penceresi ----------
-  function inject(i) {
+  plazmaToolpathRow(function inject(i) {
     if (!toolpathsInScene[i] || $('#plazmaJointRow' + i).length) return;
     var after = $('#tplasmaleadin' + i).closest('tr');
     if (!after.length) return;
@@ -185,26 +172,10 @@
       '</div></td></tr>');
     after.after(row);
     row.css('display', after.css('display') === 'none' ? 'none' : '');
-    row.find('input').on('change keyup', function() { updateCamUserData(i); });
-  }
-
-  if (typeof window.setupJob === 'function') {
-    var origSetup = window.setupJob;
-    window.setupJob = function(i) {
-      try { return origSetup.apply(this, arguments); } finally { try { inject(i); } catch (e) { console.error('Plazma mikro bağlantı satırı', e); } }
-    };
-  }
-  if (typeof window.updateCamUserData === 'function') {
-    var origUpd = window.updateCamUserData;
-    window.updateCamUserData = function(i) {
-      var r = origUpd.apply(this, arguments);
-      if ($('#tplazmajoints' + i).length && toolpathsInScene[i]) {
-        var ud = toolpathsInScene[i].userData;
-        ud.plazmaJoints = Math.max(0, parseInt($('#tplazmajoints' + i).val(), 10) || 0);
-        ud.plazmaJointW = Math.max(0.1, parseFloat($('#tplazmajointw' + i).val()) || 1);
-        try { localStorage.setItem('lastCamOperation', JSON.stringify(ud, inflatedReplacer)); } catch (e) {}
-      }
-      return r;
-    };
-  }
+    row.find('input').on('change', function() { updateCamUserData(i); });
+  }, function(i, ud) {
+    if (!$('#tplazmajoints' + i).length) return;
+    ud.plazmaJoints = Math.max(0, parseInt($('#tplazmajoints' + i).val(), 10) || 0);
+    ud.plazmaJointW = Math.max(0.1, parseFloat($('#tplazmajointw' + i).val()) || 1);
+  });
 })();

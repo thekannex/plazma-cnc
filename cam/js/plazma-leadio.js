@@ -209,19 +209,7 @@
         cuts.push({ idx: i, x: num(ln, 'X'), y: num(ln, 'Y') });
       }
     }
-    // İç içelik derinliği: bir kontur kaç başka kapalı konturun içinde
-    var polys = blocks.map(function(b) {
-      var p = b.cuts.map(function(c) { return { x: c.x, y: c.y }; });
-      return p.length > 2 && dist(p[0], p[p.length - 1]) < EPS ? p : null;
-    });
-    blocks.forEach(function(b, bi) {
-      var depth = 0;
-      if (polys[bi]) {
-        var probe = polys[bi][Math.floor(polys[bi].length / 2)];
-        polys.forEach(function(p, pj) { if (p && pj !== bi && insidePoly(probe, p)) depth++; });
-      }
-      processBlock(lines, b.rapidIdx, b.cuts, cfg, edits, { scrap: ctx.scrap, leadin: ctx.leadin, depth: depth });
-    });
+    blocks.forEach(function(b) { processBlock(lines, b.rapidIdx, b.cuts, cfg, edits, ctx); });
     var out = [];
     for (var m = 0; m < lines.length; m++) {
       if (edits[m]) out.push.apply(out, edits[m]); else out.push(lines[m]);

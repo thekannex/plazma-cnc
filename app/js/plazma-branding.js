@@ -13,16 +13,18 @@
     };
   }
 
-  // Kapat düğmesi: tepsiye gizlemek yerine programı kapatır. Kesim sürüyorsa önce onay ister.
+  // Kapat düğmesi: tepsiye gizlemek yerine programı kapatır (OpenBuilds'in 'quit' olayı). Kesim sürüyorsa
+  // önce onay ister. (Sayfadan window.close() ana süreçte 'close' olayını tetiklemediği için kullanılmaz;
+  // Alt+F4 / görev çubuğu onayı index.js'teki 'close' olayında.)
   window.plazmaQuit = function() {
     var running = typeof laststatus !== 'undefined' && laststatus.comms && (laststatus.comms.connectionStatus === 3 || laststatus.comms.connectionStatus === 4);
-    if (!running) { socket.emit('minimisetotray'); return; }
+    if (!running) { socket.emit('quit'); return; }
     Metro.dialog.create({
       title: '<span class="fg-red">Kesim devam ediyor!</span>',
       content: '<div>Programı kapatırsanız makineye komut akışı yarıda kesilir ve <b>torç açık kalabilir</b>. Önce işi durdurun.</div>',
       actions: [
         { caption: 'Kapatma', cls: 'js-dialog-close success' },
-        { caption: 'Yine de kapat', cls: 'js-dialog-close alert', onclick: function() { socket.emit('minimisetotray'); } }
+        { caption: 'Yine de kapat', cls: 'js-dialog-close alert', onclick: function() { socket.emit('quit'); } }
       ]
     });
   };
