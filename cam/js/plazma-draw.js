@@ -12,7 +12,8 @@
     pts: [],          // tıklanan noktalar
     cursor: null,     // yakalanmış imleç noktası
     snap: null,       // { p, kind: 'vertex'|'center'|'grid'|'first' }
-    node: { line: null, sel: -1, drag: false, moved: false }
+    node: { line: null, sel: -1, drag: false, moved: false },
+    sc: { drag: null } // ölçekleme sürüklemesi
   };
 
   var TOOLS = {
@@ -23,6 +24,7 @@
     polygon: { name: 'Çokgen', hint: 'Merkez, sonra köşe noktası · veya Yarıçap yazıp Enter' },
     slot: { name: 'Kanal', hint: 'Birinci merkez, sonra ikinci merkez (genişlik paneldeki değer)' },
     trim: { name: 'Kırp (Trim)', hint: 'Silinecek parçanın üzerine gel (kırmızı) ve tıkla · Diğer çizgiler kesme kenarıdır · Kesişmeyen çizgi tamamen silinir · Ctrl+Z: geri al · Esc: çık' },
+    scale: { name: 'Ölçekle', hint: 'Şekle tıkla (Shift+tık: çoklu seçim) · Köşeden sürükle: oranlı büyüt/küçült (Shift: serbest) · Kenardan: tek yön · Alt: merkezden · İçinden sürükle: taşı · Esc: bırak' },
     node: { name: 'Düğüm Düzenle', hint: 'Çizgiye tıkla · Noktayı sürükle · Shift+tık: nokta ekle · Del: seçili noktayı sil · Burada böl: açık çizgiyi ikiye ayırır, kapalı konturu bu noktadan sonraki kenarı kaldırarak açar · Esc: bırak' }
   };
 
@@ -93,6 +95,7 @@
     if (ls('plazmaSnapVertex', '1') === '1') {
       docLinesWorld(function(line, ox, oy) {
         if (PD.tool === 'node' && PD.node.drag && line === PD.node.line) return;
+        if (PD.tool === 'scale' && PD.sc.drag && line.userData.selected) return; // kendi noktalarına yapışmasın
         var v = line.geometry.vertices;
         if (v.length > 3000) { consider(P(v[0].x + ox, v[0].y + oy), 'vertex'); return; }
         for (var i = 0; i < v.length; i++) consider(P(v[i].x + ox, v[i].y + oy), 'vertex');
@@ -191,6 +194,7 @@
       '#plazmaDrawPanel input[type=number]{display:inline-block !important; height:22px !important; min-height:0 !important; line-height:20px; border:1px solid #666; border-radius:3px; background:#fff; margin:0 !important;}' +
       '#plazmaDrawPanel input[type=checkbox]{display:inline-block !important; width:auto !important; height:auto !important; margin:0 3px 0 0 !important; position:static !important; opacity:1 !important;}' +
       '#plazmaDrawPanel .button.mini{height:22px; line-height:20px; padding:0 8px; font-size:11px;}' +
+      '#plazmaDrawPanel select{display:inline-block !important; width:auto !important; height:22px !important; min-height:0 !important; padding:0 4px !important; font-size:12px !important; line-height:20px; border:1px solid #666; border-radius:3px; background:#fff; color:#111; margin:0 !important;}' +
       '</style>');
     panel = $('<div id="plazmaDrawPanel"></div>').css({
       position: 'absolute', top: '10px', left: '58px', zIndex: 5, display: 'none', minWidth: '260px', maxWidth: '420px',
@@ -214,6 +218,7 @@
     });
     panel.on('change', 'input[data-ls]', function() { lsSet($(this).data('ls'), this.type === 'checkbox' ? (this.checked ? '1' : '0') : this.value); render(); });
     panel.on('click', '[data-act]', function() { action($(this).data('act')); });
+    panel.on('input', '#pdScW, #pdScH, #pdScP', scaleFieldInput);
   }
 
   function field(id, label, val, lsKey, w) {
@@ -233,6 +238,12 @@
     if (t === 'circle') h += field('pdD', 'Çap', '', null) + field('pdCX', 'Merkez X', '', null, 56) + field('pdCY', 'Y', '', null, 56) + '<div>' + btn('circleAt', 'Bu merkeze çiz') + '</div>';
     if (t === 'polygon') h += field('pdN', 'Kenar', ls('plazmaPolyN', '6'), 'plazmaPolyN', 44) + field('pdPR', 'Yarıçap', '', null, 56);
     if (t === 'slot') h += field('pdSW', 'Genişlik', ls('plazmaSlotW', '10'), 'plazmaSlotW', 56);
+    if (t === 'scale') h += '<div id="pdScInfo" style="margin-bottom:4px;"></div>' +
+      field('pdScW', 'En', '', null, 70) + field('pdScH', 'Boy', '', null, 70) + field('pdScP', '%', '', null, 54) + '<br>' +
+      '<label><input type="checkbox" data-ls="plazmaScaleKeep" ' + (ls('plazmaScaleKeep', '1') === '1' ? 'checked' : '') + '> Oranı koru</label>' +
+      '<label>Referans <select id="pdScRef" style="height:22px; color:#111;">' +
+      [['bl', 'Sol alt'], ['tl', 'Sol üst'], ['br', 'Sağ alt'], ['tr', 'Sağ üst'], ['c', 'Merkez']].map(function(o) { return '<option value="' + o[0] + '"' + (ls('plazmaScaleRef', 'bl') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label>' +
+      '<div>' + btn('scApply', 'Uygula') + btn('scAll', 'Tümünü seç') + btn('scNone', 'Seçimi bırak') + '</div>';
     if (t === 'node') h += '<div id="pdNodeInfo" style="margin-bottom:4px;">Düzenlenecek çizgiye tıklayın.</div>' +
       '<div id="pdNodeEdit" style="display:none;">' + field('pdNX', 'X', '', null, 70) + field('pdNY', 'Y', '', null, 70) + '<br>' +
       field('pdNL', 'Sonraki kenar', '', null, 64) + field('pdNA', 'Açı°', '', null, 50) +
@@ -252,12 +263,15 @@
   PD.start = function(tool) {
     if (PD.tool === tool) { PD.stop(); return; }
     if (PD.tool) PD.stop(); // önceki aracı düzgün kapat (yarım çizgi kaydedilir)
+    var keepSel = tool === 'scale' ? selLines() : null; // ölçekleme: önceden seçilenlerle başla
     activating = true;
     try { mouseSelectMode(); } finally { activating = false; }
     deselectAllObjects();
+    if (keepSel) keepSel.forEach(function(l) { l.userData.selected = true; });
     PD.tool = tool;
     if (window.plazmaFixDocs) plazmaFixDocs();
-    if (tool === 'trim' || tool === 'node') changePositionToGeoTranslate();
+    if (tool === 'trim' || tool === 'node' || tool === 'scale') changePositionToGeoTranslate();
+    PD.sc = { drag: null };
     PD.trimPlan = null;
     PD.pts = [];
     PD.node = { line: null, sel: -1, drag: false, moved: false };
@@ -267,6 +281,7 @@
     panel.html(panelHtml()).show();
     $('#renderArea').css('cursor', 'crosshair');
     if (typeof helpoverlay !== 'undefined') helpoverlay.innerHTML = TOOLS[tool].hint + ' · <kbd>Sağ tık</kbd> = Kaydır / <kbd>Tekerlek</kbd> = Yakınlaştır';
+    if (tool === 'scale') scaleFill();
     render();
   };
 
@@ -276,6 +291,7 @@
     PD.tool = null;
     PD.pts = [];
     PD.node = { line: null, sel: -1, drag: false, moved: false };
+    PD.sc = { drag: null };
     clearPreview();
     panel.hide();
     $('.plazmaToolBtn').removeClass('tbtnactive');
@@ -294,6 +310,12 @@
   });
 
   function cancel() {
+    if (PD.tool === 'scale') {
+      if (PD.sc.drag) { PD.sc.drag = null; render(); }
+      else if (selLines().length) { deselectAllObjects(); scaleFill(); render(); }
+      else PD.stop();
+      return;
+    }
     if (PD.tool === 'node') {
       if (PD.node.line) { PD.node = { line: null, sel: -1, drag: false, moved: false }; updateNodePanel(); render(); }
       else PD.stop();
@@ -323,6 +345,7 @@
     rubber().forEach(function(pts, i) { addPreviewLine(pts, 0xff6a00, i > 0); });
     PD.pts.forEach(function(p) { addMarker(p, 0xff6a00, 3); });
     if (PD.tool === 'node') renderNode();
+    if (PD.tool === 'scale') { renderScale(); return; }
     if (PD.tool === 'trim' && PD.trimPlan && PD.trimPlan.removed) PD.trimPlan.removed.forEach(function(r) { addPreviewLine(r, 0xff1744); });
     if (c && PD.snap) {
       var col = { vertex: 0x00c853, center: 0x2979ff, first: 0xffd600 }[PD.snap.kind] || 0x888888;
@@ -428,6 +451,7 @@
       var R = num('pdPR');
       if (R) makePolygon(last, R, 90);
     } else if (t === 'node') action('nodeApply');
+    else if (t === 'scale') action('scApply');
     render();
   }
 
@@ -441,6 +465,7 @@
       else toast('Merkez X, Y ve Çap girin', 'bg-red fg-white');
       render();
     } else if (a.indexOf('node') === 0) nodeAction(a);
+    else if (a.indexOf('sc') === 0) scaleAction(a);
   }
 
   // ---------- düğüm düzenleme ----------
@@ -747,6 +772,186 @@
     render();
   }
 
+  // ---------- ölçekleme (köşeden tut) ----------
+  // Seçim, orijinal seçimle aynı bayrak (userData.selected): araçtan çıkınca seçim korunur.
+  function selLines() { var out = []; docLinesWorld(function(l) { if (l.userData.selected) out.push(l); }); return out; }
+  function worldPtsOf(l) {
+    var doc = l.parent || { position: { x: 0, y: 0 } }, ox = l.position.x + doc.position.x, oy = l.position.y + doc.position.y;
+    return linePts(l).map(function(p) { return P(p.x + ox, p.y + oy); });
+  }
+  function selBox() {
+    var s = selLines();
+    if (!s.length) return null;
+    var b = G.bbox(s.map(worldPtsOf));
+    b.w = b.x1 - b.x0; b.h = b.y1 - b.y0;
+    return b;
+  }
+  // tutamaçlar: kutu içindeki oran (0 / 0.5 / 1)
+  var HANDLES = [[0, 0], [0.5, 0], [1, 0], [1, 0.5], [1, 1], [0.5, 1], [0, 1], [0, 0.5]];
+  function handlePt(b, h) { return P(b.x0 + b.w * h[0], b.y0 + b.h * h[1]); }
+  function hitHandle(b, q) {
+    var tol = 8 * pxW(), best = null, bd = tol;
+    HANDLES.forEach(function(h) {
+      if ((h[0] === 0.5 && b.w < 1e-6) || (h[1] === 0.5 && b.h < 1e-6)) return;
+      var d = G.dist(handlePt(b, h), q);
+      if (d < bd) { bd = d; best = h; }
+    });
+    return best;
+  }
+  function inBox(b, q) { var m = 4 * pxW(); return q.x > b.x0 - m && q.x < b.x1 + m && q.y > b.y0 - m && q.y < b.y1 + m; }
+  // dönüşüm: sabit nokta (ax, ay) etrafında sx, sy ölçek + (dx, dy) öteleme
+  function xf(p, t) { return P(t.ax + (p.x - t.ax) * t.sx + t.dx, t.ay + (p.y - t.ay) * t.sy + t.dy); }
+
+  function dragXf(e, q) {
+    var d = PD.sc.drag, b = d.box;
+    if (d.mode === 'move') return { ax: 0, ay: 0, sx: 1, sy: 1, dx: q.x - d.q0.x, dy: q.y - d.q0.y };
+    var h = d.h, center = e.altKey;
+    var ax = center ? b.x0 + b.w / 2 : b.x0 + b.w * (1 - h[0]), ay = center ? b.y0 + b.h / 2 : b.y0 + b.h * (1 - h[1]);
+    var hp = handlePt(b, h);
+    var sx = h[0] === 0.5 || Math.abs(hp.x - ax) < 1e-9 ? 1 : (q.x - ax) / (hp.x - ax);
+    var sy = h[1] === 0.5 || Math.abs(hp.y - ay) < 1e-9 ? 1 : (q.y - ay) / (hp.y - ay);
+    if (h[0] !== 0.5 && h[1] !== 0.5 && !e.shiftKey) { // köşe: oranı koru (fare köşegen üzerine izdüşürülür)
+      var vx = hp.x - ax, vy = hp.y - ay, L2 = vx * vx + vy * vy;
+      sx = sy = L2 > 1e-12 ? ((q.x - ax) * vx + (q.y - ay) * vy) / L2 : 1;
+    }
+    // Izgara yakalaması açıksa yeni ölçü ızgara adımına yuvarlanır (oranlıda büyük kenar esas alınır)
+    var grid = parseFloat(ls('plazmaSnapGrid', '1'));
+    if (ls('plazmaSnapGridOn', '1') === '1' && grid > 0 && PD.snap && PD.snap.kind === 'grid') {
+      var rnd = function(len, k) { return len > 1e-6 ? Math.max(grid, Math.round(len * k / grid) * grid) / len : k; };
+      if (sx === sy && h[0] !== 0.5 && h[1] !== 0.5) sx = sy = b.w >= b.h ? rnd(b.w, sx) : rnd(b.h, sy);
+      else { if (h[0] !== 0.5) sx = rnd(b.w, sx); if (h[1] !== 0.5) sy = rnd(b.h, sy); }
+    }
+    var min = 0.01; // ters çevirme (aynalama) yok
+    return { ax: ax, ay: ay, sx: Math.max(min, sx), sy: Math.max(min, sy), dx: 0, dy: 0 };
+  }
+
+  // Parametrik şekil bilgisini dönüşümle günceller; uyumsuzsa null (şekil serbest çizgi olur)
+  function scaleShape(sh, t, pts) {
+    var c = JSON.parse(JSON.stringify(sh)), uni = Math.abs(t.sx - t.sy) < 1e-9, s = t.sx;
+    function mv(kx, ky) { var p = xf(P(c[kx], c[ky]), t); c[kx] = p.x; c[ky] = p.y; }
+    if (c.type === 'rect' && (uni || !c.rot)) { mv('x', 'y'); c.w *= t.sx; c.h *= t.sy; c.r = (c.r || 0) * Math.min(t.sx, t.sy); }
+    else if (!uni) return null;
+    else if (c.type === 'circle') { mv('cx', 'cy'); c.d *= s; }
+    else if (c.type === 'polygon') { mv('cx', 'cy'); c.R *= s; }
+    else if (c.type === 'slot') { mv('x1', 'y1'); mv('x2', 'y2'); c.w *= s; }
+    else if (c.type === 'arc') { mv('cx', 'cy'); c.r *= s; }
+    else return null;
+    Object.keys(c).forEach(function(k) { if (typeof c[k] === 'number') c[k] = Math.round(c[k] * 1e6) / 1e6; });
+    // doğrulama: parametrelerden üretilen şekil, ölçeklenen çizgiyle aynı yerde mi
+    var gen = PD.shapePts(c);
+    if (!gen) return null;
+    var a = G.bbox([gen]), b = G.bbox([pts]);
+    return Math.abs(a.x0 - b.x0) + Math.abs(a.y0 - b.y0) + Math.abs(a.x1 - b.x1) + Math.abs(a.y1 - b.y1) < 0.05 ? c : null;
+  }
+
+  function applyXf(t) {
+    var s = selLines();
+    if (!s.length || (Math.abs(t.sx - 1) < 1e-9 && Math.abs(t.sy - 1) < 1e-9 && !t.dx && !t.dy)) return;
+    storeUndo(true);
+    changePositionToGeoTranslate(); // konumlar geometriye işlenir: yerel = dünya koordinatı
+    s.forEach(function(l) {
+      var pts = linePts(l).map(function(p) { return xf(p, t); });
+      setLinePts(l, pts);
+      var sh = l.userData.plazmaShape;
+      if (sh) { var ns = scaleShape(sh, t, pts); if (ns) l.userData.plazmaShape = ns; else delete l.userData.plazmaShape; }
+    });
+    sceneChanged(true);
+    scaleFill();
+  }
+
+  // Paneldeki En / Boy / % alanlarını mevcut seçime göre doldurur
+  function scaleFill() {
+    var b = selBox(), n = selLines().length;
+    $('#pdScInfo').html(n ? '<b>' + n + '</b> şekil seçili: ' + fmt(b.w) + ' × ' + fmt(b.h) + ' mm' : 'Ölçeklenecek şekle tıklayın.');
+    if (!$('#pdScW, #pdScH, #pdScP').is(':focus')) { $('#pdScW').val(b ? fmt(b.w) : ''); $('#pdScH').val(b ? fmt(b.h) : ''); $('#pdScP').val(b ? 100 : ''); }
+  }
+  // Oran korunuyorsa alanlar birbirini izler
+  function scaleFieldInput() {
+    var b = selBox();
+    if (!b || ls('plazmaScaleKeep', '1') !== '1') return;
+    var id = this.id, v = parseFloat(this.value);
+    if (!(v > 0)) return;
+    var k = id === 'pdScP' ? v / 100 : id === 'pdScW' ? (b.w > 1e-6 ? v / b.w : null) : (b.h > 1e-6 ? v / b.h : null);
+    if (!k) return;
+    if (id !== 'pdScW') $('#pdScW').val(fmt(b.w * k));
+    if (id !== 'pdScH') $('#pdScH').val(fmt(b.h * k));
+    if (id !== 'pdScP') $('#pdScP').val(fmt(k * 100));
+  }
+
+  function scaleAction(a) {
+    if (a === 'scAll') { docLinesWorld(function(l) { l.userData.selected = true; }); scaleFill(); render(); return; }
+    if (a === 'scNone') { deselectAllObjects(); scaleFill(); render(); return; }
+    if (a !== 'scApply') return;
+    var b = selBox();
+    if (!b) { toast('Önce ölçeklenecek şekli seçin', 'bg-red fg-white'); return; }
+    var W = num('pdScW'), H = num('pdScH'), pc = num('pdScP');
+    var sx = W > 0 && b.w > 1e-6 ? W / b.w : 1, sy = H > 0 && b.h > 1e-6 ? H / b.h : 1;
+    if (Math.abs(sx - 1) < 1e-9 && Math.abs(sy - 1) < 1e-9 && pc > 0) sx = sy = pc / 100; // sadece % girildiyse
+    if (b.w < 1e-6) sx = sy; if (b.h < 1e-6) sy = sx; // düz yatay/dikey çizgi
+    var ref = $('#pdScRef').val() || 'bl';
+    lsSet('plazmaScaleRef', ref);
+    var ax = ref === 'c' ? b.x0 + b.w / 2 : ref.charAt(1) === 'r' ? b.x1 : b.x0;
+    var ay = ref === 'c' ? b.y0 + b.h / 2 : ref.charAt(0) === 't' ? b.y1 : b.y0;
+    applyXf({ ax: ax, ay: ay, sx: sx, sy: sy, dx: 0, dy: 0 });
+    render();
+  }
+
+  var CURSORS = { '0,0': 'nesw-resize', '1,1': 'nesw-resize', '1,0': 'nwse-resize', '0,1': 'nwse-resize', '0.5,0': 'ns-resize', '0.5,1': 'ns-resize', '0,0.5': 'ew-resize', '1,0.5': 'ew-resize' };
+  function scaleDown(e, raw) {
+    var b = selBox();
+    if (!b) return;
+    var h = hitHandle(b, raw);
+    if (h) PD.sc.drag = { mode: 'scale', h: h, box: b, q0: PD.cursor, moved: false };
+    else if (inBox(b, raw)) PD.sc.drag = { mode: 'move', box: b, q0: PD.cursor, moved: false, pending: true };
+  }
+  function scaleMove(e) {
+    var d = PD.sc.drag, raw = worldAt(e.clientX, e.clientY);
+    if (d && (e.buttons & 1)) {
+      if (d.pending && downAt && Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) < 4) return; // tıklama mı sürükleme mi
+      d.pending = false; d.moved = true;
+      d.t = dragXf(e, PD.cursor);
+      return;
+    }
+    var b = selBox(), h = b && hitHandle(b, raw);
+    $('#renderArea').css('cursor', h ? CURSORS[h.join(',')] : b && inBox(b, raw) ? 'move' : 'pointer');
+  }
+  function scaleUp(e) {
+    var d = PD.sc.drag;
+    PD.sc.drag = null;
+    if (d && d.moved && d.t) { applyXf(d.t); render(); return; }
+    if (downAt && Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) >= 6) return;
+    // tıklama: şekil seç (Shift: ekle / çıkar), boşluğa tıklama seçimi bırakır
+    var line = pickLine(e);
+    if (line) {
+      if (e.shiftKey) line.userData.selected = !line.userData.selected;
+      else if (!line.userData.selected) { deselectAllObjects(); line.userData.selected = true; }
+    } else if (!(d && d.mode === 'move')) deselectAllObjects();
+    scaleFill();
+    render();
+  }
+
+  function renderScale() {
+    var d = PD.sc.drag, t = d && d.moved ? d.t : null, s = selLines(), b = selBox();
+    if (b) {
+      s.forEach(function(l) { // sürüklerken yeni hâli, değilse seçimi turuncu göster
+        var w = worldPtsOf(l);
+        addPreviewLine(t ? w.map(function(p) { return xf(p, t); }) : w, 0xff6a00, !t);
+      });
+      var tb = t ? { x0: xf(P(b.x0, b.y0), t).x, y0: xf(P(b.x0, b.y0), t).y, x1: xf(P(b.x1, b.y1), t).x, y1: xf(P(b.x1, b.y1), t).y } : b;
+      tb.w = tb.x1 - tb.x0; tb.h = tb.y1 - tb.y0;
+      addPreviewLine([P(tb.x0, tb.y0), P(tb.x1, tb.y0), P(tb.x1, tb.y1), P(tb.x0, tb.y1), P(tb.x0, tb.y0)], 0x2979ff, true);
+      HANDLES.forEach(function(h) {
+        if ((h[0] === 0.5 && tb.w < 1e-6) || (h[1] === 0.5 && tb.h < 1e-6)) return;
+        addMarker(handlePt(tb, h), d && d.h === h ? 0xff6a00 : 0x2979ff, 4);
+      });
+      var r = fmt(tb.w) + ' × ' + fmt(tb.h) + ' mm';
+      if (t && d.mode === 'scale') r += '  (' + (t.sx === t.sy ? fmt(t.sx * 100) + '%' : fmt(t.sx * 100) + '% × ' + fmt(t.sy * 100) + '%') + ')';
+      if (t && d.mode === 'move') r = 'ΔX ' + t.dx.toFixed(2) + '  ΔY ' + t.dy.toFixed(2);
+      $('#pdReadout').text(r);
+    } else $('#pdReadout').text(PD.cursor ? 'X ' + PD.cursor.x.toFixed(2) + '  Y ' + PD.cursor.y.toFixed(2) : '');
+    if (d && PD.snap && PD.snap.kind !== 'free') addMarker(PD.cursor, { vertex: 0x00c853, center: 0x2979ff }[PD.snap.kind] || 0x888888, 5, PD.snap.kind === 'grid');
+  }
+
   // ---------- olaylar ----------
   var downAt = null;
   function onDown(e) {
@@ -759,12 +964,14 @@
     PD.snap = snapPoint(raw, e);
     PD.cursor = PD.snap.p;
     if (PD.tool === 'node') nodeDown(e, raw);
+    if (PD.tool === 'scale') scaleDown(e, raw);
   }
   function onUp(e) {
     if (!PD.tool || e.button !== 0) return;
     if ($(e.target).closest('#plazmaDrawPanel').length) return;
     e.stopPropagation(); e.preventDefault();
     if (PD.tool === 'node') { nodeUp(); downAt = null; return; }
+    if (PD.tool === 'scale') { scaleUp(e); downAt = null; return; }
     if (PD.tool === 'trim') {
       if (downAt && Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) < 6) trimApply(trimPlan(e));
       downAt = null;
@@ -780,6 +987,7 @@
     PD.snap = snapPoint(raw, e);
     PD.cursor = PD.snap.p;
     if (PD.tool === 'node') nodeMove(e);
+    if (PD.tool === 'scale') scaleMove(e);
     if (PD.tool === 'trim' && !(e.buttons & 7) && Date.now() - (PD.trimT || 0) > 40) { PD.trimT = Date.now(); PD.trimPlan = trimPlan(e); $('#renderArea').css('cursor', PD.trimPlan && !PD.trimPlan.error ? 'pointer' : 'crosshair'); }
     render();
     if (!(e.buttons & 2) && !(e.buttons & 4)) e.stopPropagation(); // sağ/orta sürükleme kaydırma için geçsin
@@ -801,7 +1009,7 @@
       else { PD.pts.pop(); render(); }
     } else if (/^[0-9.\-]$/.test(k)) {
       // Doğrudan sayı yazınca ilgili alana git
-      var target = { polyline: PD.pts.length ? '#pdL' : '#pdX', rect: '#pdW', circle: '#pdD', polygon: '#pdPR', slot: '[data-ls=plazmaSlotW]' }[PD.tool];
+      var target = { polyline: PD.pts.length ? '#pdL' : '#pdX', rect: '#pdW', circle: '#pdD', polygon: '#pdPR', slot: '[data-ls=plazmaSlotW]', scale: '#pdScW' }[PD.tool];
       var el = target && $(target);
       if (el && el.length) { el.val('').focus(); el.val(k); } else handled = false;
     } else handled = false;
@@ -816,6 +1024,9 @@
     ra.addEventListener('mousemove', onMove, true);
     ra.addEventListener('dblclick', onDbl, true);
     window.addEventListener('keydown', onKey, true);
+    // Ölçekleme sürüklemesi çizim alanının dışına taşarsa da sürsün / bitsin
+    window.addEventListener('mousemove', function(e) { if (PD.tool === 'scale' && PD.sc.drag && !ra.contains(e.target)) onMove(e); }, true);
+    window.addEventListener('mouseup', function(e) { if (PD.tool === 'scale' && PD.sc.drag && !ra.contains(e.target)) { scaleUp(e); downAt = null; } }, true);
     $(document).on('click', '.plazmaToolBtn', function() { PD.start($(this).data('tool')); });
   });
 

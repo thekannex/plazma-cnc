@@ -53,6 +53,7 @@ Yerleşim araçlarından sonra toolpath'ler ve G-code kendiliğinden yeniden hes
 | Ölçüyle çizim | Araç paneli | Sayı yazmaya başlayınca ilgili alana geçer; Tab: sonraki alan, Enter: uygula. Çizgide uzunluk+açı veya X/Y |
 | Kırp (Trim) | Sol çubuk, makas simgesi | Silinecek parçanın üzerine gel (kırmızı görünür), tıkla. Diğer tüm çizgiler kesme kenarıdır; açık çizgi ortadan kırpılırsa ikiye ayrılır, kapalı kontur açılır, hiç kesişmeyen çizgi silinir. Sonra **Birleştir** ile tek kapalı kontur yapılır |
 | Düğüm düzenle | Sol çubuk, son simge | Çizgiye tıkla, noktayı sürükle, Shift+tık nokta ekle, Del sil, kenar uzunluğu/açısı sayıyla, böl/aç |
+| Ölçekle | Sol çubuk, dört oklu simge (en alttaki) | Şekle tıkla (Shift+tık: çoklu seçim). Mavi kutunun **köşesinden** sürükle: oranlı büyüt/küçült (Shift: serbest), **kenarından**: tek yön, Alt: merkezden, **içinden**: taşı. Izgara açıkken ölçü ızgara adımına yuvarlanır. Panelden En/Boy/% ve referans noktasıyla kesin ölçü. Parametrik şekillerin ölçüleri ve toolpath'ler güncellenir, Undo ile geri alınır |
 | Kopyala, Dizi, Dairesel dizi | Şerit → Plazma Düzenle | Seçili çizgilerle çalışır. Dizi: parçalar arası boşlukla satır×sütun |
 | Köşe yuvarlat, Birleştir, Ofset | Şerit → Plazma Düzenle | Birleştir: uçları değen açık çizgileri tek (kapalı) kontura çevirir |
 | Özellikler (parametrik) | Şerit → Plazma Düzenle → Özellikler | Programda çizilen şekillerin ölçüleri (en/boy/R, çap, kenar sayısı...) sonradan değiştirilebilir; toolpath ve G-code kendiliğinden güncellenir |
