@@ -37,8 +37,7 @@ OpenBuilds CONTROL + OpenBuilds CAM'in tek pencerede birleşmiş, FluidNC plazma
 | Torca Hizala | Plazma Yerleşim | Referans noktasını torcun şu anki konumuna taşır (CONTROL bağlı olmalı) |
 | Torç kapama komutu | Settings → Advanced | Varsayılan `M3 S0` |
 | IHS dizisi | Settings → Advanced | `G91 / G38.2 Z-50 F300 / G90 / G10 L20 P1 Z-3` (anahtar boşluğu 3 mm) |
-| Lead-in tipi: Yay | Settings → Advanced | Varsayılan **Yay** (kalite varsayılanları, bindirme 1 mm). Yay seçilince: kontura teğet giriş; CAM'in lead-in koyamadığı konturlara da hurda tarafında lead-in eklenir |
-| Kontur sonu bindirme | Settings → Advanced | mm, 0 = kapalı (öneri 1–2 mm) |
+| Lead-in / Lead-out | Toolpath penceresi → **Plazma: Lead-in / Lead-out** (Lead-In Distance altında) | Her toolpath için ayrı: giriş şekli **Yay** (kontura teğet; CAM'in lead-in koyamadığı konturlara da hurda tarafında eklenir) veya **Düz**, ve kontur sonu bindirme mm (0 = yok, öneri 1–2 mm). Yeni toolpath son kullanılan değerlerle başlar |
 | Küçük delik yavaşlatma | Settings → Advanced | Sınır (mm) ve hız (%). 0 = kapalı (öneri: malzeme kalınlığının ~2.5 katı, %60) |
 | Kesim yönü | Settings → Advanced → Plasma: Kesim Yönü | Varsayılan **Standart**: dış konturlar saat yönünde, delikler saat tersine (iyi kenar hareket yönünün sağında kalır). Ters girdaplı sarf için **Ters** |
 | Başlangıç noktası | Settings → Advanced → Plasma: Başlangıç Noktası | Yay lead-in açıkken delme parçanın dış köşesine, yoksa en uzun düz kenarın ortasına alınır; eğride / iç köşede giriş izi kalmaz |

@@ -4,6 +4,7 @@
 //    CAM'in lead-in koyamadığı kapalı konturlara da hurda tarafında yay lead-in eklenir.
 //  - Kontur sonu bindirme: başlangıç noktası X mm geçilerek kapatılır
 //  - Küçük delikler: belirlenen boyuttan küçük kapalı konturlar düşük hızda kesilir
+// Lead-in tipi ve bindirme toolpath başınadır (toolpath penceresi), küçük delik ayarları genel (Settings).
 // Ayarların hepsi kapalıyken çıktı birebir orijinaldir.
 (function() {
   'use strict';
@@ -54,6 +55,14 @@
       holeFeed: Math.min(100, Math.max(10, parseFloat(v('plazmaHoleFeed')) || 60))
     };
   }
+
+  // Lead-in tipi ve bindirme (lead-out) toolpath'e aittir; toolpath'te yoksa (eski işler) genel varsayılan
+  window.plazmaLeadOpts = function(ud) {
+    ud = ud || {};
+    var t = ud.plazmaLeadinType || localStorage.getItem('plazmaLeadinType') || 'straight';
+    var o = ud.plazmaOvercut !== undefined && ud.plazmaOvercut !== '' ? ud.plazmaOvercut : localStorage.getItem('plazmaOvercut');
+    return { type: t, arc: t === 'arc', overcut: Math.max(0, parseFloat(o) || 0) };
+  };
 
   // P0'da kontura teğet (P0→P1 yönünde) biten çeyrek daire yayı arar.
   // left: yay merkezi yönün solunda mı. wantInside: delme noktası konturun içinde mi olmalı.
@@ -227,7 +236,9 @@
         if (typeof g === 'string' && op && op.indexOf('Plasma') === 0) {
           var scrap = op.indexOf('outside') > -1 ? 'outside' : op.indexOf('inside') > -1 ? 'inside' : null;
           var leadin = Math.abs(parseFloat(ud.camPlasmaLeadinDist)) || 3;
-          var cfg = settings();
+          var cfg = settings(), lo = plazmaLeadOpts(ud);
+          cfg.arc = lo.arc;
+          cfg.overcut = lo.overcut;
           // Küçük delik sınırı girilmemişse malzemenin kalınlığından: çap < 2,5 × kalınlık
           var mat = window.PlazmaMaterial && PlazmaMaterial.get(ud.plazmaMaterial);
           if (!cfg.holeDia && mat && parseFloat(mat.thick) > 0) cfg.holeDia = Math.max(6, 2.5 * parseFloat(mat.thick));
@@ -239,4 +250,33 @@
       return g;
     };
   }
+
+  // ---------- Toolpath penceresi: "Plazma: Lead-in / Lead-out" (Lead-In Distance satırının altında) ----------
+  // Yeni toolpath son kullanılan değerlerle, o da yoksa genel varsayılanla (yay, 1 mm) başlar.
+  $(function() {
+    if (typeof window.plazmaToolpathRow !== 'function') return;
+    plazmaToolpathRow(function(i) {
+      if (!toolpathsInScene[i] || $('#plazmaLeadRow' + i).length) return;
+      var after = $('#tplasmaleadin' + i).closest('tr');
+      if (!after.length) return;
+      var ud = toolpathsInScene[i].userData || {}, src = ud;
+      if (!ud.camOperation) { try { src = JSON.parse(localStorage.getItem('lastCamOperation')) || {}; } catch (e) { src = {}; } }
+      var lo = plazmaLeadOpts(src);
+      var row = $('<tr class="inputplasma" id="plazmaLeadRow' + i + '"><td>Plazma: Lead-in / Lead-out<br><span class="text-small">Giriş şekli · kontur sonu bindirme (0 = yok)</span></td><td>' +
+        '<div class="input-addon" style="display:flex">' +
+        '<span class="input-addon-label-left active-border"><i class="fas fa-share fa-fw" style="color:#ff6a00"></i></span>' +
+        '<select class="cam-form-field active-border" id="tplazmaleadtype' + i + '" style="width:130px;border-left:solid 1px #ccc;padding:0 0 0 8px;">' +
+        '<option value="arc"' + (lo.arc ? ' selected' : '') + '>Yay (teğet)</option><option value="straight"' + (lo.arc ? '' : ' selected') + '>Düz</option></select>' +
+        '<input type="number" class="cam-form-field active-border" id="tplazmaovercut' + i + '" min="0" step="0.1" style="width:70px;margin-left:6px" value="' + lo.overcut + '">' +
+        '<span class="input-addon-label-right active-border">mm</span>' +
+        '</div></td></tr>');
+      after.after(row);
+      row.css('display', after.css('display') === 'none' ? 'none' : '');
+      row.find('select, input').on('change', function() { updateCamUserData(i); });
+    }, function(i, ud) {
+      if (!$('#tplazmaleadtype' + i).length) return;
+      ud.plazmaLeadinType = $('#tplazmaleadtype' + i).val();
+      ud.plazmaOvercut = String(Math.max(0, parseFloat($('#tplazmaovercut' + i).val()) || 0));
+    });
+  });
 })();

@@ -36,8 +36,6 @@ localParams = [
   ['scommandscale', true],
   ['ihsgcode', false],
   ['plasmatooloff', false], // Plazma CONTROL eklentisi: torç kapama komutu
-  ['plazmaLeadinType', false], // Plazma CONTROL: düz / yay lead-in
-  ['plazmaOvercut', false], // Plazma CONTROL: kontur sonu bindirme (mm)
   ['plazmaHoleDia', false], // Plazma CONTROL: küçük delik sınırı (mm)
   ['plazmaHoleFeed', false], // Plazma CONTROL: küçük delik hızı (%)
   ['plazmaCutDir', false], // Plazma: kesim yönü (dış saat yönü / delik tersi)
@@ -685,23 +683,6 @@ $(document).ready(function() {
                              <label class="cell-sm-6">Plasma: Torç Kapama Komutu<br><span class="text-small">Boş bırakılırsa M5 kullanılır</span></label>
                              <div class="cell-sm-6">
                                <input type="text" data-role="input" data-clear-button="false" class="form-control form-control-sm" id="plasmatooloff" placeholder="M5">
-                             </div>
-                         </div>
-
-                         <div class="row mb-2">
-                             <label class="cell-sm-6">Plasma: Lead-in Tipi<br><span class="text-small">Yay: torç kontura teğet girer, giriş izi azalır</span></label>
-                             <div class="cell-sm-6">
-                               <select id="plazmaLeadinType" class="form-control form-control-sm">
-                                 <option value="straight">Düz (orijinal)</option>
-                                 <option value="arc">Yay (çeyrek daire)</option>
-                               </select>
-                             </div>
-                         </div>
-
-                         <div class="row mb-2">
-                             <label class="cell-sm-6">Plasma: Kontur Sonu Bindirme (mm)<br><span class="text-small">Başlangıç noktasını bu kadar geçip kapatır. 0 = kapalı</span></label>
-                             <div class="cell-sm-6">
-                               <input type="number" step="0.1" min="0" class="form-control form-control-sm" id="plazmaOvercut" placeholder="0">
                              </div>
                          </div>
 
