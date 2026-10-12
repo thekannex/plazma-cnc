@@ -687,21 +687,21 @@ $(document).ready(function() {
                          </div>
 
                          <div class="row mb-2">
-                             <label class="cell-sm-6">Plasma: Küçük Delik Sınırı (mm)<br><span class="text-small">Bu boyuttan küçük kapalı konturlar yavaş kesilir. 0 = kapalı</span></label>
+                             <label class="cell-sm-6">Plasma: Küçük Delik Sınırı (mm)<br><span class="text-small">Yeni toolpath'ler için varsayılan (toolpath penceresinde değiştirilir). 0 = malzemeden (2,5 × kalınlık)</span></label>
                              <div class="cell-sm-6">
                                <input type="number" step="1" min="0" class="form-control form-control-sm" id="plazmaHoleDia" placeholder="0">
                              </div>
                          </div>
 
                          <div class="row mb-2">
-                             <label class="cell-sm-6">Plasma: Küçük Delik Hızı (%)<br><span class="text-small">Normal kesim hızının yüzdesi</span></label>
+                             <label class="cell-sm-6">Plasma: Küçük Delik Hızı (%)<br><span class="text-small">Normal kesim hızının yüzdesi · yeni toolpath'ler için varsayılan</span></label>
                              <div class="cell-sm-6">
                                <input type="number" step="5" min="10" max="100" class="form-control form-control-sm" id="plazmaHoleFeed" placeholder="60">
                              </div>
                          </div>
 
                          <div class="row mb-2">
-                             <label class="cell-sm-6">Plasma: Kesim Yönü<br><span class="text-small">Plazma arkı döner; iyi kenar hareket yönünün sağında kalır. Standart girdap halkası: dış saat yönü, delik saat tersi</span></label>
+                             <label class="cell-sm-6">Plasma: Kesim Yönü<br><span class="text-small">Yeni toolpath'ler için varsayılan. Plazma arkı döner; iyi kenar hareket yönünün sağında kalır. Standart girdap halkası: dış saat yönü, delik saat tersi</span></label>
                              <div class="cell-sm-6">
                                <select id="plazmaCutDir" class="form-control form-control-sm">
                                  <option value="std">Standart (dış saat yönü, delik tersi)</option>

@@ -74,8 +74,8 @@
 
   window.plazmaQualityPrep = function(grp, ud) {
     var op = String(ud.camOperation || '');
-    var dir = opt('plazmaCutDir', 'std'), start = opt('plazmaStartOpt', 'on') === 'on', first = opt('plazmaHolesFirst', 'on') === 'on';
-    var arc = plazmaLeadOpts(ud).arc;
+    var tp = plazmaTpOpts(ud), dir = tp.cutDir, arc = tp.arc;
+    var start = opt('plazmaStartOpt', 'on') === 'on', first = opt('plazmaHolesFirst', 'on') === 'on';
     var isIn = op.indexOf('inside') > -1, isOut = op.indexOf('outside') > -1, offsetOp = isIn || isOut;
     if (dir === 'off' && !first && !(start && arc && offsetOp)) return grp;
     var lines = [];
