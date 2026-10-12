@@ -21,6 +21,13 @@ OpenBuilds CONTROL + OpenBuilds CAM'in tek pencerede birleşmiş, FluidNC plazma
 | Plasma On/Off | Tool menüsü | `M3 S1000` / `M3 S0` |
 | Hazır makrolar | Macros sekmesi | Torç Testi, Yoklama Testi, Z Sıfırla (IHS), Torcu Kaldır, Sıfıra Git |
 
+### Makine profilleri
+| Özellik | Nerede | Not |
+|---|---|---|
+| Makine kaydet | Ayarlar penceresi (Settings) → en üstte **Makine adı** | Kaydet'e basınca tüm ayarlar (ölçü, eklenti: plazma / router / lazer, G-code komutları, IHS, plazma ayarları, son toolpath ayarları) bu isimle saklanır. **Yeni makine olarak kaydet** işaretlenirse mevcut makine değişmez |
+| Açılışta seçim | Program açılınca **Makine Seç** penceresi | Kayıtlı makinelerden biri seçilir. Düzenle / kopyala / sil buradan. "Her açılışta sor" kapatılırsa son kullanılan makine ile açılır |
+| Makine değiştir | Çizim → Project şeridi → **Makine** (aktif makinenin adı yazar) | Ör. plazmadan router'a geçiş: seçince çizim sayfası yeni ayarlarla yenilenir (kaydedilmemiş çizim kaybolur) |
+
 ### CAM (çizim tarafı)
 | Özellik | Nerede | Not |
 |---|---|---|
