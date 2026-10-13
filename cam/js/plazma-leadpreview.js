@@ -131,4 +131,34 @@
     };
   }
   window.plazmaLeadPreview = previewNow;
+
+  // ---------- Simülasyon düzeltmesi ----------
+  // OpenBuilds G-code görüntüleyicisi G2/G3 yayını 20 alt parçaya böler ama hızı ve süreyi yalnız son
+  // parçaya yazar; simülatör hızsız parçaların her birinde 0,6 sn bekler. Sonuç: her yay (lead-in / lead-out,
+  // daireler) boyundan bağımsız ~12 sn sürer ve çok yavaş görünür. G-code'u etkilemez, sadece canlandırma.
+  // Simülasyon başlamadan alt parçalara yayın hızını ve kendi uzunluklarına göre süreyi yazar.
+  function fixArcTiming() {
+    var lines = typeof object !== 'undefined' && object && object.userData && object.userData.lines;
+    if (!lines || lines.__plazmaArcFix) return;
+    var prev = null, feed = null;
+    for (var k = 0; k < lines.length; k++) {
+      var ln = lines[k], p2 = ln && ln.p2;
+      if (!p2) continue;
+      if (ln.args && ln.args.feedrate > 0) feed = ln.args.feedrate;
+      if (p2.g2 && prev && feed > 0) {
+        var d = Math.sqrt(Math.pow(p2.x - prev.x, 2) + Math.pow(p2.y - prev.y, 2) + Math.pow((p2.z || 0) - (prev.z || 0), 2));
+        p2.feedrate = feed;
+        p2.timeMins = d / feed * 1.32; // görüntüleyicinin ivme payı ile aynı
+      }
+      prev = p2;
+    }
+    lines.__plazmaArcFix = true;
+  }
+  if (typeof window.sim === 'function') {
+    var origSim = window.sim;
+    window.sim = function() {
+      try { fixArcTiming(); } catch (e) { console.warn('Simülasyon yay süresi düzeltilemedi', e); }
+      return origSim.apply(this, arguments);
+    };
+  }
 })();
