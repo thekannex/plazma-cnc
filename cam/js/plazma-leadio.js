@@ -2,9 +2,9 @@
 // Orijinal generateGcode() aynen çalışır; çıktısı sadece Plasma işlemlerinde ve ayar açıksa değiştirilir:
 //  - Yay lead-in: düz giriş çizgisi yerine kontura teğet çeyrek daire (G2/G3).
 //    CAM'in lead-in koyamadığı kapalı konturlara da hurda tarafında yay lead-in eklenir.
-//  - Kontur sonu bindirme: başlangıç noktası X mm geçilerek kapatılır
+//  - Lead-out: kontur sonu bindirme (başlangıç noktası X mm geçilir) veya hurda tarafına teğet yay çıkış
 //  - Küçük delikler: belirlenen boyuttan küçük kapalı konturlar düşük hızda kesilir
-// Lead-in tipi ve bindirme toolpath başınadır (toolpath penceresi), küçük delik ayarları genel (Settings).
+// Lead-in / lead-out, kesim yönü ve küçük delik toolpath başınadır (toolpath penceresi); makine ayarı varsayılandır.
 // Ayarların hepsi kapalıyken çıktı birebir orijinaldir.
 (function() {
   'use strict';
@@ -58,14 +58,22 @@
 
   // Toolpath başına kesim ayarları. Toolpath'te yoksa (yeni / eski işler) varsayılan:
   // lead-in tipi ve bindirme için genel değer, kesim yönü ve küçük delik için makine ayarı (Settings).
+  // Lead-in: 'arc' | 'straight' | 'off' + uzunluk. Lead-out: 'off' | 'over' (kontur boyunca bindirme) |
+  // 'arc' (hurda tarafına teğet yay) + uzunluk. Eski işlerde lead-out bilgisi yoksa bindirme değerinden gelir.
   window.plazmaTpOpts = function(ud) {
     ud = ud || {};
     var has = function(k) { return ud[k] !== undefined && ud[k] !== null && ud[k] !== ''; };
     var m = settings();
-    var t = ud.plazmaLeadinType || localStorage.getItem('plazmaLeadinType') || 'straight';
-    var o = has('plazmaOvercut') ? ud.plazmaOvercut : localStorage.getItem('plazmaOvercut');
+    var lit = ud.plazmaLeadinType || localStorage.getItem('plazmaLeadinType') || 'straight';
+    var lil = has('plazmaLeadinLen') ? Math.max(0, parseFloat(ud.plazmaLeadinLen) || 0) : (Math.abs(parseFloat(ud.camPlasmaLeadinDist)) || 3);
+    var lot, lol;
+    if (has('plazmaLeadoutType')) { lot = ud.plazmaLeadoutType; lol = Math.max(0, parseFloat(ud.plazmaLeadoutLen) || 0); }
+    else { lol = Math.max(0, parseFloat(has('plazmaOvercut') ? ud.plazmaOvercut : localStorage.getItem('plazmaOvercut')) || 0); lot = lol > 0 ? 'over' : 'off'; }
+    if (lit !== 'off' && !(lil > 0)) lit = 'off';
+    if (lot !== 'off' && !(lol > 0)) lot = 'off';
     return {
-      type: t, arc: t === 'arc', overcut: Math.max(0, parseFloat(o) || 0),
+      leadinType: lit, leadinLen: lil, leadoutType: lot, leadoutLen: lol,
+      arc: lit === 'arc', overcut: lot === 'over' ? lol : 0, leadoutArc: lot === 'arc' ? lol : 0,
       cutDir: ud.plazmaCutDir || ($('#plazmaCutDir').val() || localStorage.getItem('plazmaCutDir') || 'std'),
       holeDia: has('plazmaHoleDia') ? Math.max(0, parseFloat(ud.plazmaHoleDia) || 0) : m.holeDia,
       holeFeed: has('plazmaHoleFeed') ? Math.min(100, Math.max(10, parseFloat(ud.plazmaHoleFeed) || 60)) : m.holeFeed
@@ -197,6 +205,24 @@
       lineOut[last.idx] = [lineOut[last.idx]].concat(extra);
     }
 
+    // Yay lead-out: kontur kapanınca son kenar yönünde teğet çıkıp hurda tarafına kıvrılır.
+    // Lead-in yayının tersidir: E'de biten yay bulunur, ters yönde (G2↔G3) kesilir.
+    if (cfg.leadoutArc > 0 && ctx.scrap !== null) {
+      var lc = cuts[cuts.length - 1], E = contour[contour.length - 1], Pb = null;
+      for (var q = contour.length - 2; q >= 0; q--) { if (dist(contour[q], E) > 0.001) { Pb = contour[q]; break; } }
+      if (Pb) {
+        var wo = ctx.scrap === 'inside';
+        var ao = findArc(E, Pb, true, cfg.leadoutArc, wo, contour) || findArc(E, Pb, false, cfg.leadoutArc, wo, contour);
+        if (ao) {
+          var cur = Array.isArray(lineOut[lc.idx]) ? lineOut[lc.idx] : [lineOut[lc.idx]];
+          var tpl = cur[0].replace(/\s*;.*$/, '');
+          var lo = setXY(tpl, ao.S.x, ao.S.y).replace(reLinear, ao.left ? 'G2' : 'G3');
+          lo = lo.replace(/(Y\s*-?[\d.]+)/i, '$1 I' + (ao.C.x - E.x).toFixed(4) + ' J' + (ao.C.y - E.y).toFixed(4)) + ' ; Plazma yay lead-out';
+          lineOut[lc.idx] = cur.concat([lo]);
+        }
+      }
+    }
+
     cuts.forEach(function(c, ci) {
       var v = lineOut[c.idx];
       v = Array.isArray(v) ? v : [v];
@@ -208,7 +234,7 @@
   window.plazmaPostProcess = function(g, cfg, ctx) {
     cfg = cfg || settings();
     ctx = ctx || { scrap: null, leadin: 3 };
-    if (!cfg.arc && !cfg.overcut && !cfg.holeDia) return g;
+    if (!cfg.arc && !cfg.overcut && !cfg.leadoutArc && !cfg.holeDia) return g;
     var lines = g.split('\n');
     var edits = {};
     var blocks = [];
@@ -243,8 +269,8 @@
         var op = ud && ud.camOperation;
         if (typeof g === 'string' && op && op.indexOf('Plasma') === 0) {
           var scrap = op.indexOf('outside') > -1 ? 'outside' : op.indexOf('inside') > -1 ? 'inside' : null;
-          var leadin = Math.abs(parseFloat(ud.camPlasmaLeadinDist)) || 3;
-          var o = plazmaTpOpts(ud), cfg = { arc: o.arc, overcut: o.overcut, holeDia: o.holeDia, holeFeed: o.holeFeed };
+          var o = plazmaTpOpts(ud), leadin = o.leadinLen || 3;
+          var cfg = { arc: o.arc, overcut: o.overcut, leadoutArc: o.leadoutArc, holeDia: o.holeDia, holeFeed: o.holeFeed };
           // Küçük delik sınırı girilmemişse malzemenin kalınlığından: çap < 2,5 × kalınlık
           var mat = window.PlazmaMaterial && PlazmaMaterial.get(ud.plazmaMaterial);
           if (!cfg.holeDia && mat && parseFloat(mat.thick) > 0) cfg.holeDia = Math.max(6, 2.5 * parseFloat(mat.thick));
@@ -267,17 +293,31 @@
       if (!after.length) return;
       var ud = toolpathsInScene[i].userData || {}, last = {};
       try { last = JSON.parse(localStorage.getItem('lastCamOperation')) || {}; } catch (e) {}
-      // yeni toolpath: lead-in son kullanılandan, kesim yönü / küçük delik makine ayarından
-      var lo = plazmaTpOpts(ud.camOperation ? ud : { plazmaLeadinType: last.plazmaLeadinType, plazmaOvercut: last.plazmaOvercut });
-      var row = $('<tr class="inputplasma" id="plazmaLeadRow' + i + '"><td>Plazma: Lead-in / Lead-out<br><span class="text-small">Giriş şekli · kontur sonu bindirme (0 = yok)</span></td><td>' +
-        '<div class="input-addon" style="display:flex">' +
-        '<span class="input-addon-label-left active-border"><i class="fas fa-share fa-fw" style="color:#ff6a00"></i></span>' +
-        '<select class="cam-form-field active-border" id="tplazmaleadtype' + i + '" style="width:130px;border-left:solid 1px #ccc;padding:0 0 0 8px;">' +
-        '<option value="arc"' + (lo.arc ? ' selected' : '') + '>Yay (teğet)</option><option value="straight"' + (lo.arc ? '' : ' selected') + '>Düz</option></select>' +
-        '<input type="number" class="cam-form-field active-border" id="tplazmaovercut' + i + '" min="0" step="0.1" style="width:70px;margin-left:6px" value="' + lo.overcut + '">' +
-        '<span class="input-addon-label-right active-border">mm</span>' +
-        '</div></td></tr>');
+      // yeni toolpath: lead-in / lead-out son kullanılandan, kesim yönü / küçük delik makine ayarından
+      var lo = plazmaTpOpts(ud.camOperation ? ud : {
+        plazmaLeadinType: last.plazmaLeadinType, plazmaLeadinLen: last.plazmaLeadinLen, camPlasmaLeadinDist: last.camPlasmaLeadinDist,
+        plazmaLeadoutType: last.plazmaLeadoutType, plazmaLeadoutLen: last.plazmaLeadoutLen, plazmaOvercut: last.plazmaOvercut
+      });
       var opt = function(v, t, sel) { return '<option value="' + v + '"' + (v === sel ? ' selected' : '') + '>' + t + '</option>'; };
+      var leadRow = function(id, label, help, icon, sid, opts, sel, nid, val) {
+        return '<tr class="inputplasma" id="' + id + i + '"><td>' + label + '<br><span class="text-small">' + help + '</span></td><td>' +
+          '<div class="input-addon" style="display:flex">' +
+          '<span class="input-addon-label-left active-border"><i class="fas ' + icon + ' fa-fw" style="color:#ff6a00"></i></span>' +
+          '<select class="cam-form-field active-border" id="' + sid + i + '" style="width:160px;border-left:solid 1px #ccc;padding:0 0 0 8px;">' +
+          opts.map(function(o) { return opt(o[0], o[1], sel); }).join('') + '</select>' +
+          '<input type="number" class="cam-form-field active-border" id="' + nid + i + '" min="0" step="0.5" style="width:70px;margin-left:6px" value="' + val + '">' +
+          '<span class="input-addon-label-right active-border">mm</span></div></td></tr>';
+      };
+      // Uzunluklar kapalıyken de saklanır: tekrar açınca eski değer gelir
+      var inLen = ud.plazmaLeadinLen || (Math.abs(parseFloat(ud.camPlasmaLeadinDist)) || lo.leadinLen || 3);
+      var outLen = ud.plazmaLeadoutLen || last.plazmaLeadoutLen || lo.leadoutLen || 1;
+      var row = $(leadRow('plazmaLeadRow', 'Plazma: Lead-in', 'Giriş: delmeden kontura geçiş', 'fa-sign-in-alt', 'tplazmaleadtype',
+          [['arc', 'Yay (teğet)'], ['straight', 'Düz'], ['off', 'Kapalı (konturda del)']], lo.leadinType, 'tplazmaleadlen', inLen) +
+        leadRow('plazmaLeadOutRow', 'Plazma: Lead-out', 'Çıkış: kontur bitince', 'fa-sign-out-alt', 'tplazmaouttype',
+          [['over', 'Bindirme (kontur boyunca)'], ['arc', 'Yay (hurdaya çıkış)'], ['off', 'Kapalı']], lo.leadoutType, 'tplazmaoutlen', outLen));
+      // OpenBuilds'in "Lead-In Distance" satırı gizlenir; değeri Lead-in satırından yazılır (toolpath hesabı onu kullanır)
+      var vis = after.css('display') !== 'none';
+      after.removeClass('inputplasma').hide();
       var rows = row.add($('<tr class="inputplasma" id="plazmaHoleRow' + i + '"><td>Plazma: Küçük delik<br><span class="text-small">Bu çaptan küçük konturlar yavaş kesilir. 0 = malzemeden (2,5 × kalınlık)</span></td><td>' +
         '<div class="input-addon" style="display:flex">' +
         '<span class="input-addon-label-left active-border"><i class="far fa-dot-circle fa-fw" style="color:#ff6a00"></i></span>' +
@@ -291,12 +331,17 @@
         opt('std', 'Standart (dış saat yönü, delik tersi)', lo.cutDir) + opt('rev', 'Ters (ters girdaplı sarf)', lo.cutDir) + opt('off', 'Değiştirme (orijinal)', lo.cutDir) +
         '</select></div></td></tr>'));
       after.after(rows);
-      rows.css('display', after.css('display') === 'none' ? 'none' : '');
+      rows.css('display', vis ? '' : 'none');
       rows.find('select, input').on('change', function() { updateCamUserData(i); });
     }, function(i, ud) {
       if (!$('#tplazmaleadtype' + i).length) return;
-      ud.plazmaLeadinType = $('#tplazmaleadtype' + i).val();
-      ud.plazmaOvercut = String(Math.max(0, parseFloat($('#tplazmaovercut' + i).val()) || 0));
+      var lit = $('#tplazmaleadtype' + i).val(), lil = Math.max(0, parseFloat($('#tplazmaleadlen' + i).val()) || 0);
+      var lot = $('#tplazmaouttype' + i).val(), lol = Math.max(0, parseFloat($('#tplazmaoutlen' + i).val()) || 0);
+      ud.plazmaLeadinType = lit; ud.plazmaLeadinLen = String(lil);
+      ud.plazmaLeadoutType = lot; ud.plazmaLeadoutLen = String(lol);
+      ud.plazmaOvercut = String(lot === 'over' ? lol : 0); // eski alanla uyum
+      // orijinal updateCamUserData bu alanı camPlasmaLeadinDist'e yazar (CAM'in kendi giriş noktası)
+      $('#tplasmaleadin' + i).val(lit === 'off' ? 0 : lil);
       ud.plazmaHoleDia = String(Math.max(0, parseFloat($('#tplazmaholedia' + i).val()) || 0));
       ud.plazmaHoleFeed = String(Math.min(100, Math.max(10, parseFloat($('#tplazmaholefeed' + i).val()) || 60)));
       ud.plazmaCutDir = $('#tplazmacutdir' + i).val();
