@@ -41,6 +41,7 @@ localParams = [
   ['plazmaCutDir', false], // Plazma: kesim yönü (dış saat yönü / delik tersi)
   ['plazmaStartOpt', false], // Plazma: başlangıç noktasını köşeye / düz kenara al
   ['plazmaHolesFirst', false], // Plazma: toolpath içinde önce delikler
+  ['plazmaRapidRate', false], // Plazma: boşta gezme (G0) hızı — simülasyon ve süre tahmini
   ['machinetype', true],
   ['performanceLimit', false]
 ];
@@ -728,6 +729,13 @@ $(document).ready(function() {
                                  <option value="on">Açık (önerilen)</option>
                                  <option value="off">Kapalı (orijinal sıra)</option>
                                </select>
+                             </div>
+                         </div>
+
+                         <div class="row mb-2">
+                             <label class="cell-sm-6">Plasma: Boşta Gezme Hızı (G0, mm/dk)<br><span class="text-small">Makinenin azami hızı ($110). Makine G0'ı zaten bu hızla yapar; bu değer simülasyon ve süre tahmini içindir</span></label>
+                             <div class="cell-sm-6">
+                               <input type="number" step="100" min="100" class="form-control form-control-sm" id="plazmaRapidRate" placeholder="8000">
                              </div>
                          </div>
 

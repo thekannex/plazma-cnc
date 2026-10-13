@@ -275,6 +275,9 @@
           var mat = window.PlazmaMaterial && PlazmaMaterial.get(ud.plazmaMaterial);
           if (!cfg.holeDia && mat && parseFloat(mat.thick) > 0) cfg.holeDia = Math.max(6, 2.5 * parseFloat(mat.thick));
           g = plazmaPostProcess(g, cfg, { scrap: scrap, leadin: leadin });
+          // G0'daki F (CAM'in sabit 1000'i) anlamsız: FluidNC/Grbl G0'ı her zaman azami hızla ($110) yapar.
+          // Kaldırılır ki G-code ve simülasyon yanıltmasın (kesim satırlarının kendi F değeri var).
+          g = g.replace(/^(\s*G0*0)(?![\d.])\s*F\s*[\d.]+/gim, '$1');
         }
       } catch (e) {
         console.error('Plazma son işleyici hatası, orijinal G-code kullanılıyor:', e);
