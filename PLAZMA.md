@@ -18,6 +18,7 @@ OpenBuilds CONTROL + OpenBuilds CAM'in tek pencerede birleşmiş, FluidNC plazma
 | Çerçeve Gez | Machine Control şeridi → Plazma grubu (bağlantısız da görünür) | Önce Z güvenli yüksekliğe kalkar, **sadece kesim hareketlerinin** sınırını gezer |
 | Kuru Çalıştır | Machine Control şeridi → Plazma grubu | Torç/probe/bekleme/koordinat komutlarını çıkarır, güvenli Z'de gezer. Başta ve sonda `M5` |
 | Jog hızı | Sağdaki dikey Jog kaydırıcısı; altındaki hız yazısına tıkla → %100 hızı ayarla | Tıkla → %100 hızı (XY/Z mm/dk) ayarla. FluidNC'de kaydırıcı artık çalışıyor |
+| Z için ayrı jog adımı | Jog mesafe düğmelerinin altındaki **Z** satırı | Adımlı jog'da Z kendi mesafesiyle gider (ör. X/Y 100 mm, Z 0.1 mm). **Z = XY**: Z de X/Y adımını kullanır. Seçim saklanır |
 | Plasma On/Off | Tool menüsü | `M3 S1000` / `M3 S0` |
 | Hazır makrolar | Macros sekmesi | Torç Testi, Yoklama Testi, Z Sıfırla (IHS), Torcu Kaldır, Sıfıra Git |
 

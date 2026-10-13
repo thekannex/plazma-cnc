@@ -134,4 +134,54 @@
     // Açılışta kayıtlı hızı uygula
     setTimeout(function () { try { jogOverride(localStorage.getItem('jogOverride') || 100); } catch (e) {} }, 1500);
   });
+
+  // ---------- Z için ayrı jog adımı ----------
+  // Mesafe satırının altına "Z adımı" satırı eklenir. Seçiliyse adımlı jog'da Z bu mesafeyle gider
+  // (ör. X/Y 100 mm, Z 0.1 mm); "Z = XY" seçiliyse orijinal davranış. Sürekli jog'u etkilemez.
+  var ZSTEPS = [0.1, 1, 10, 100];
+  var IN = { 0.1: [0.0254, '0.001"'], 1: [0.254, '0.01"'], 10: [2.54, '0.1"'], 100: [25.4, '1"'] }; // inç modu (X/Y ile aynı karşılıklar)
+  function inch() { return typeof unit !== 'undefined' && unit === 'in'; }
+  function zStep() { var v = parseFloat(localStorage.getItem('plazmaJogZ')); return ZSTEPS.indexOf(v) >= 0 ? v : null; }
+  function zPaint() {
+    var z = zStep();
+    $('.plazmaZBtn').each(function () {
+      var v = parseFloat($(this).data('z')) || null, on = v === z;
+      if (v) $(this).find('span').text('Z ' + (inch() ? IN[v][1] : v + 'mm'));
+      // Metro düğme stili !important kullanıyor: seçili rengi de öyle verilir
+      this.style.setProperty('border-color', on ? '#ff6a00' : '', on ? 'important' : '');
+      $(this).find('span').get(0).style.setProperty('color', on ? '#ff6a00' : '#888', 'important');
+    });
+  }
+  $(function () {
+    // jog.js bu dosyadan sonra yüklenir: sarmalayıcılar sayfa hazır olunca kurulur
+    if (typeof window.jog === 'function') {
+      var origJog = window.jog;
+      window.jog = function (dir, dist, feed) {
+        var z = zStep();
+        if (dir === 'Z' && z) {
+          var neg = String(dist).trim().charAt(0) === '-';
+          dist = (neg ? '-' : '') + (inch() ? IN[z][0] : z);
+        }
+        return origJog.call(this, dir, dist, feed);
+      };
+    }
+    ['mmMode', 'inMode'].forEach(function (n) {
+      var o = window[n];
+      if (typeof o === 'function') window[n] = function () { var r = o.apply(this, arguments); zPaint(); return r; };
+    });
+    var tr = $('#dist100').closest('tr');
+    if (!tr.length) return;
+    var btn = function (v, txt, title) {
+      return '<td><button class="button light jogbtn plazmaZBtn" data-z="' + v + '" title="' + title + '" style="width:100%;height:25px;line-height:25px;padding:0;">' +
+        '<span style="font-weight:900;font-family:Arial;font-size:12px;">' + txt + '</span></button></td>';
+    };
+    var row = $('<tr id="plazmaZDistRow">' + btn('', 'Z = XY', 'Z, X/Y ile aynı adımı kullanır') +
+      ZSTEPS.map(function (s) { return btn(s, 'Z ' + s + 'mm', 'Adımlı jog\'da Z ' + s + ' mm gider'); }).join('') + '</tr>');
+    tr.after(row);
+    // doğrudan bağlanır (jogbtn olayları tıklamanın yukarı iletilmesini durdurabiliyor)
+    row.find('.plazmaZBtn').on('click', function () { localStorage.setItem('plazmaJogZ', $(this).attr('data-z')); zPaint(); });
+    zPaint();
+    // Sürekli jog modunda mesafe düğmeleri gizlenir: Z satırı da onlarla birlikte
+    setInterval(function () { row.toggle($('#dist10').is(':visible') || !$('#dist10').closest('table').is(':visible')); }, 500);
+  });
 })();
