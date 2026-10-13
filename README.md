@@ -16,11 +16,14 @@ Windows (64 bit): **[Releases](../../releases)** sayfasından `PlasmaKontrol-win
 **Çizim (CAM)**
 - DXF / SVG içe aktarma (DXF dairelerindeki kapanma ve kaydetme hataları düzeltildi)
 - Çizim araçları: çizgi, dikdörtgen (köşe yarıçaplı), daire, yay, çokgen, kanal; ızgara ve noktaya yapışma, ölçüyle çizim
+- **Ölçekle**: şekli köşesinden tutup büyüt/küçült (oranlı veya serbest), kenarından esnet, sürükleyerek taşı; panelden kesin ölçü
 - Düğüm düzenleme, **kırp (trim)**, birleştir, köşe yuvarlat, ofset, kopyala, dizi, dairesel dizi
 - Parametrik şekiller: ölçüler sonradan değiştirilebilir, toolpath ve G-code kendiliğinden güncellenir
 - Aynalama, 9 noktadan sıfır seçimi, torca hizalama
 - **Malzeme kütüphanesi (kesim tablosu)**: malzeme/kalınlık seçince kerf, hız, delme ve kesim yüksekliği gelir
 - **Mikro bağlantı (köprü)**: küçük parçalar ızgaralı tablaya düşmesin
+- **Toolpath başına kesim ayarları**: lead-in (yay / düz / kapalı) ve lead-out (bindirme / yay / kapalı) ayrı uzunluklarla, kesim yönü, küçük delik yavaşlatma; delme noktası ve giriş/çıkış önizlemede görünür
+- **Makine profilleri**: ayarları isimle kaydet (ör. Plazma, Router), açılışta listeden seç
 - Plazma G-code: ayarlanabilir torç kapama (`M3 S0`), FluidNC uyumlu IHS dizisi, yay lead-in, kontur sonu bindirme, küçük delik yavaşlatma
 
 **Nesting (sac yerleşimi)**
