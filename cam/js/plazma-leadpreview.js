@@ -31,7 +31,7 @@
       var code = ln.replace(/;.*$/, ''), hasXY = /[XY]\s*-?[\d.]/i.test(code);
       if (/;\s*Tool On/i.test(ln)) { cur = { S: { x: pos.x, y: pos.y }, segs: [] }; torch = true; return; }
       if (/;\s*Tool Off/i.test(ln)) { if (cur) out.push(cur); cur = null; torch = false; return; }
-      if (cur && /mikro baglanti: torc kapali/i.test(ln)) { torch = false; return; }
+      if (cur && /mikro baglanti: torc kapali|kucuk delik: torc kapali/i.test(ln)) { torch = false; return; }
       if (cur && /mikro baglanti: torc acik/i.test(ln)) { torch = true; return; }
       if (!hasXY) return;
       var nx = num(code, 'X'), ny = num(code, 'Y'), np = { x: nx === null ? pos.x : nx, y: ny === null ? pos.y : ny };

@@ -76,7 +76,8 @@
       arc: lit === 'arc', overcut: lot === 'over' ? lol : 0, leadoutArc: lot === 'arc' ? lol : 0,
       cutDir: ud.plazmaCutDir || ($('#plazmaCutDir').val() || localStorage.getItem('plazmaCutDir') || 'std'),
       holeDia: has('plazmaHoleDia') ? Math.max(0, parseFloat(ud.plazmaHoleDia) || 0) : m.holeDia,
-      holeFeed: has('plazmaHoleFeed') ? Math.min(100, Math.max(10, parseFloat(ud.plazmaHoleFeed) || 60)) : m.holeFeed
+      holeFeed: has('plazmaHoleFeed') ? Math.min(100, Math.max(10, parseFloat(ud.plazmaHoleFeed) || 60)) : m.holeFeed,
+      holeMode: ud.plazmaHoleMode === 'speed' ? 'speed' : 'full'
     };
   };
 
@@ -143,8 +144,20 @@
       });
     }
 
+    // Küçük delik modu: içten kesilen (delik) ve sınırdan küçük konturda merkezden düz giriş, lead-out yok,
+    // tam turda torç kapanır ve hareket biraz devam eder (giriş izini temizler). Yay giriş / çıkış atlanır.
+    var hole = slow && cfg.holeMode !== 'speed' && ctx.scrap === 'inside';
+    if (hole) {
+      var P0h = contour[0], Ch = { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
+      if (insidePoly(Ch, contour) && dist(Ch, P0h) > 0.5) {
+        edits[rapidIdx] = [setXY(lines[rapidIdx], Ch.x, Ch.y)]; // delme deliğin merkezinde
+        // CAM'in lead-in'i varsa ilk kesim satırı zaten P0'a gider; yoksa merkezden P0'a düz giriş eklenir
+        if (!hasLead) prefix.push(setXY(lineOut[cuts[0].idx], P0h.x, P0h.y).replace(/\s*;.*$/, '') + ' ; Plazma kucuk delik: merkezden duz giris');
+      }
+    }
+
     // Yay lead-in
-    if (cfg.arc) {
+    if (cfg.arc && !hole) {
       var P0 = contour[0], P1 = null;
       for (var k = 1; k < contour.length; k++) {
         if (dist(contour[k], P0) > 0.001) { P1 = contour[k]; break; }
@@ -190,7 +203,7 @@
     }
 
     // Kontur sonu bindirme
-    if (cfg.overcut > 0) {
+    if (cfg.overcut > 0 && !hole) {
       var last = cuts[cuts.length - 1];
       var extra = [], remain = cfg.overcut, perim = 0;
       for (var i = 0; i < contour.length - 1; i++) perim += dist(contour[i], contour[i + 1]);
@@ -207,7 +220,7 @@
 
     // Yay lead-out: kontur kapanınca son kenar yönünde teğet çıkıp hurda tarafına kıvrılır.
     // Lead-in yayının tersidir: E'de biten yay bulunur, ters yönde (G2↔G3) kesilir.
-    if (cfg.leadoutArc > 0 && ctx.scrap !== null) {
+    if (cfg.leadoutArc > 0 && ctx.scrap !== null && !hole) {
       var lc = cuts[cuts.length - 1], E = contour[contour.length - 1], Pb = null;
       for (var q = contour.length - 2; q >= 0; q--) { if (dist(contour[q], E) > 0.001) { Pb = contour[q]; break; } }
       if (Pb) {
@@ -221,6 +234,22 @@
           lineOut[lc.idx] = cur.concat([lo]);
         }
       }
+    }
+
+    // Küçük delik bitişi: kontur kapanınca torç kapanır, torç kapalıyken kontur boyunca biraz daha gidilir.
+    // Yeni hareket satırlarında S yoktur (M3 aktifken S değeri torcu yeniden yakardı).
+    if (hole && ctx.offLine) {
+      var lh = cuts[cuts.length - 1], perH = 0;
+      for (var ih = 0; ih < contour.length - 1; ih++) perH += dist(contour[ih], contour[ih + 1]);
+      var restH = Math.min(cfg.holeExt > 0 ? cfg.holeExt : 4, perH * 0.25), tailH = [ctx.offLine.replace(/\s*;.*$/, '') + ' ; Plazma kucuk delik: torc kapali, hareket devam'];
+      for (var jh = 0; jh < contour.length - 1 && restH > 0.001; jh++) {
+        var Ah = contour[jh], Bh = contour[jh + 1], slh = dist(Ah, Bh);
+        if (slh < 1e-6) continue;
+        var fh = Math.min(1, restH / slh);
+        tailH.push('G1 X' + (Ah.x + (Bh.x - Ah.x) * fh).toFixed(4) + ' Y' + (Ah.y + (Bh.y - Ah.y) * fh).toFixed(4));
+        restH -= slh * fh;
+      }
+      lineOut[lh.idx] = (Array.isArray(lineOut[lh.idx]) ? lineOut[lh.idx] : [lineOut[lh.idx]]).concat(tailH);
     }
 
     cuts.forEach(function(c, ci) {
@@ -245,14 +274,16 @@
         if (reRapid.test(ln) && num(ln, 'X') !== null && num(ln, 'Y') !== null) rapidIdx = i;
         if (/;\s*Tool On/i.test(ln)) { inCut = true; cuts = []; blockRapid = rapidIdx; }
       } else if (/;\s*Tool Off/i.test(ln)) {
-        blocks.push({ rapidIdx: blockRapid, cuts: cuts });
+        blocks.push({ rapidIdx: blockRapid, cuts: cuts, off: ln });
         inCut = false;
         rapidIdx = -1;
       } else if (reLinear.test(ln) && num(ln, 'X') !== null && num(ln, 'Y') !== null) {
         cuts.push({ idx: i, x: num(ln, 'X'), y: num(ln, 'Y') });
       }
     }
-    blocks.forEach(function(b) { processBlock(lines, b.rapidIdx, b.cuts, cfg, edits, ctx); });
+    blocks.forEach(function(b) {
+      processBlock(lines, b.rapidIdx, b.cuts, cfg, edits, { scrap: ctx.scrap, leadin: ctx.leadin, offLine: b.off });
+    });
     var out = [];
     for (var m = 0; m < lines.length; m++) {
       if (edits[m]) out.push.apply(out, edits[m]); else out.push(lines[m]);
@@ -270,7 +301,7 @@
         if (typeof g === 'string' && op && op.indexOf('Plasma') === 0) {
           var scrap = op.indexOf('outside') > -1 ? 'outside' : op.indexOf('inside') > -1 ? 'inside' : null;
           var o = plazmaTpOpts(ud), leadin = o.leadinLen || 3;
-          var cfg = { arc: o.arc, overcut: o.overcut, leadoutArc: o.leadoutArc, holeDia: o.holeDia, holeFeed: o.holeFeed };
+          var cfg = { arc: o.arc, overcut: o.overcut, leadoutArc: o.leadoutArc, holeDia: o.holeDia, holeFeed: o.holeFeed, holeMode: o.holeMode };
           // Küçük delik sınırı girilmemişse malzemenin kalınlığından: çap < 2,5 × kalınlık
           var mat = window.PlazmaMaterial && PlazmaMaterial.get(ud.plazmaMaterial);
           if (!cfg.holeDia && mat && parseFloat(mat.thick) > 0) cfg.holeDia = Math.max(6, 2.5 * parseFloat(mat.thick));
@@ -321,13 +352,15 @@
       // OpenBuilds'in "Lead-In Distance" satırı gizlenir; değeri Lead-in satırından yazılır (toolpath hesabı onu kullanır)
       var vis = after.css('display') !== 'none';
       after.removeClass('inputplasma').hide();
-      var rows = row.add($('<tr class="inputplasma" id="plazmaHoleRow' + i + '"><td>Plazma: Küçük delik<br><span class="text-small">Bu çaptan küçük konturlar yavaş kesilir. 0 = malzemeden (2,5 × kalınlık)</span></td><td>' +
+      var rows = row.add($('<tr class="inputplasma" id="plazmaHoleRow' + i + '"><td>Plazma: Küçük delik<br><span class="text-small">Bu çaptan küçük delikler: yavaş; tam modda merkezden düz giriş, çıkışsız, tur sonu torç kapalı. 0 = malzemeden (2,5 × kalınlık)</span></td><td>' +
         '<div class="input-addon" style="display:flex">' +
         '<span class="input-addon-label-left active-border"><i class="far fa-dot-circle fa-fw" style="color:#ff6a00"></i></span>' +
         '<input type="number" class="cam-form-field active-border" id="tplazmaholedia' + i + '" min="0" step="1" style="width:70px" value="' + lo.holeDia + '">' +
         '<span class="input-addon-label-right active-border">mm</span>' +
         '<input type="number" class="cam-form-field active-border" id="tplazmaholefeed' + i + '" min="10" max="100" step="5" style="width:70px;margin-left:6px" value="' + lo.holeFeed + '">' +
         '<span class="input-addon-label-right active-border">% hız</span>' +
+        '<select class="cam-form-field active-border" id="tplazmaholemode' + i + '" style="width:110px;margin-left:6px;border-left:solid 1px #ccc;padding:0 0 0 6px;" title="Tam: delikte merkezden düz giriş, lead-out yok, tur sonunda torç kapanıp hareket devam eder">' +
+        opt('full', 'Tam mod', lo.holeMode) + opt('speed', 'Sadece hız', lo.holeMode) + '</select>' +
         '</div></td></tr>')).add($('<tr class="inputplasma" id="plazmaDirRow' + i + '"><td>Plazma: Kesim yönü<br><span class="text-small">İyi kenar hareket yönünün sağında kalır</span></td><td>' +
         '<div class="input-addon"><span class="input-addon-label-left active-border"><i class="fas fa-redo fa-fw" style="color:#ff6a00"></i></span>' +
         '<select class="cam-form-field cam-form-field-right active-border" id="tplazmacutdir' + i + '" style="width:280px;border-left:solid 1px #ccc;padding:0 0 0 10px;">' +
@@ -348,6 +381,7 @@
       ud.plazmaHoleDia = String(Math.max(0, parseFloat($('#tplazmaholedia' + i).val()) || 0));
       ud.plazmaHoleFeed = String(Math.min(100, Math.max(10, parseFloat($('#tplazmaholefeed' + i).val()) || 60)));
       ud.plazmaCutDir = $('#tplazmacutdir' + i).val();
+      ud.plazmaHoleMode = $('#tplazmaholemode' + i).val();
     });
   });
 })();
