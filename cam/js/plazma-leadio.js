@@ -281,8 +281,22 @@
         cuts.push({ idx: i, x: num(ln, 'X'), y: num(ln, 'Y') });
       }
     }
-    blocks.forEach(function(b) {
-      processBlock(lines, b.rapidIdx, b.cuts, cfg, edits, { scrap: ctx.scrap, leadin: ctx.leadin, offLine: b.off });
+    // Ofsetsiz işlemde hurda tarafı işlemden bilinmez: kapalı konturun iç içelik derinliğinden bulunur
+    // (çift = dış kontur, hurda dışarıda; tek = delik, hurda içeride). Böylece lead-in / lead-out ofsetsiz
+    // toolpath'te de eklenir.
+    var rings = ctx.scrap === null ? blocks.map(function(b) {
+      if (b.rapidIdx < 0 || b.cuts.length < 3) return null;
+      var L = { x: num(lines[b.rapidIdx], 'X'), y: num(lines[b.rapidIdx], 'Y') }, last = b.cuts[b.cuts.length - 1];
+      return dist(b.cuts[0], last) < EPS || dist(L, last) < EPS ? b.cuts : null;
+    }) : [];
+    blocks.forEach(function(b, bi) {
+      var scrap = ctx.scrap;
+      if (scrap === null && rings[bi]) {
+        var depth = 0, p = rings[bi][0];
+        rings.forEach(function(r, ri) { if (r && ri !== bi && insidePoly(p, r)) depth++; });
+        scrap = depth % 2 ? 'inside' : 'outside';
+      }
+      processBlock(lines, b.rapidIdx, b.cuts, cfg, edits, { scrap: scrap, leadin: ctx.leadin, offLine: b.off });
     });
     var out = [];
     for (var m = 0; m < lines.length; m++) {
