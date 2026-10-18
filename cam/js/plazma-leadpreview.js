@@ -88,11 +88,24 @@
     return pretty && pretty.children && pretty.children.length ? pretty : inf;
   }
 
+  // Önizlemeyi toolpath'ten kaldır. Ofsetsiz toolpath'te önizleme kesim grubunun (inflated) içinde durur:
+  // G-code üretilmeden önce mutlaka çıkarılmalı, yoksa çizgileri de kesilecek yol sanılır.
+  function strip(tp) {
+    var inf = tp && tp.userData && tp.userData.inflated;
+    if (!inf) return;
+    [inf, inf.userData && inf.userData.pretty].forEach(function(t) {
+      var old;
+      while (t && (old = t.getObjectByName(NAME))) {
+        old.parent.remove(old);
+        old.traverse(function(o) { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+      }
+    });
+  }
+
   function show(index, g) {
     var tp = toolpathsInScene[index], t = target(tp);
     if (!t || typeof g !== 'string') return;
-    var old = t.getObjectByName(NAME);
-    if (old) { t.remove(old); old.traverse(function(o) { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); }
+    strip(tp);
     t.add(build(g, parseFloat(tp.userData.camPlasmaKerf)));
     clearSceneFlag = true;
   }
@@ -101,6 +114,7 @@
   if (typeof window.generateGcode === 'function') {
     var origGen = window.generateGcode;
     window.generateGcode = function(index) {
+      try { strip(toolpathsInScene[index]); } catch (e) { console.warn('Lead-in önizlemesi kaldırılamadı', e); }
       var g = origGen.apply(this, arguments);
       try {
         var ud = toolpathsInScene[index] && toolpathsInScene[index].userData;
@@ -124,6 +138,7 @@
   if (typeof window.drawToolpath === 'function') {
     var origDraw = window.drawToolpath;
     window.drawToolpath = function(index) {
+      try { strip(toolpathsInScene[index]); } catch (e) {}
       var r = origDraw.apply(this, arguments);
       var w = toolpathsInScene[index] && toolpathsInScene[index].userData.worker;
       if (w && w.addEventListener) w.addEventListener('message', function(e) { if (e.data && e.data.toolpath) setTimeout(function() { previewNow(index); }, 30); });
