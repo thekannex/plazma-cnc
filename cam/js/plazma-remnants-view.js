@@ -37,8 +37,10 @@
     while (group.children.length) {
       var c = group.children[0];
       group.remove(c);
-      if (c.geometry) c.geometry.dispose();
-      if (c.material) { if (c.material.map) c.material.map.dispose(); c.material.dispose(); }
+      c.traverse(function(o) { // etiket: Object3D içinde Sprite
+        if (o.geometry) o.geometry.dispose();
+        if (o.material) { if (o.material.map) o.material.map.dispose(); o.material.dispose(); }
+      });
     }
   }
 
@@ -59,8 +61,7 @@
       group.add(new THREE.LineSegments(m, new THREE.LineBasicMaterial({ color: 0x00c853 })));
       var bb = bbox(pts), lb = label(r.name + (L ? '' : ' (bağlantı yok: ilk köşe 0,0)'), (bb.x0 + bb.x1) / 2, (bb.y0 + bb.y1) / 2);
       if (lb) group.add(lb);
-    });
-    if (typeof clearSceneFlag !== 'undefined') clearSceneFlag = true;
+    }); // grup Workspace içinde: sahne yeniden kurulmadan bir sonraki karede görünür
   }
 
   function refresh(then) {
