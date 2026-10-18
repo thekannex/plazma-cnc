@@ -46,6 +46,7 @@
     g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0xff6a00, transparent: true, opacity: 0.8 })));
     machineCoordinateSpace = g;
     workspace.add(g);
+    tableBox = { x0: x0, x1: x1, y0: y0, y1: y1 };
     // G-code yüklü değilken ızgara da masanın alanını göstersin (orijinal 0…300 sabit kare yerine).
     // G-code yüklenince orijinal kod ızgarayı işin sınırlarına göre yeniden çizer.
     var noGcode = typeof object === 'undefined' || !object || !object.userData || !object.userData.bbbox2;
@@ -55,6 +56,51 @@
       else redrawGrid(x0, x1, y0, y1, false);
     }
   }
+
+  // ---------- Dört bölgeli ızgara ----------
+  // Orijinal ızgara sadece sıfırın sağını ve arkasını (+X +Y) çizer ve cetvel her milimetre için ayrı bir
+  // çizgi nesnesi üretir (büyük alanda binlerce nesne). Bu sürüm sıfırın dört yanını kapsar: verilen alan
+  // (G-code / masa) ve sıfıra göre simetrik; 10 / 100 mm çizgileri tek geometri, etiketler 100 mm'de bir.
+  var tableBox = null;
+  function gridSprite(x, y, text, color, size) {
+    return typeof makeSprite === 'function' ? makeSprite(scene, 'webgl', { x: x, y: y, z: 0, text: text, color: color, size: size }) : null;
+  }
+  function segs(list, color, opacity) {
+    var g = new THREE.Geometry();
+    list.forEach(function(s) { g.vertices.push(new THREE.Vector3(s[0], s[1], 0), new THREE.Vector3(s[2], s[3], 0)); });
+    return new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: color, transparent: opacity < 1, opacity: opacity }));
+  }
+  window.redrawGrid = function(x0, x1, y0, y1, inches) {
+    if (typeof THREE === 'undefined' || typeof gridsystem === 'undefined') return;
+    var k = inches ? 25.4 : 1, step = inches ? 25.4 : 100; // ana çizgi aralığı (mm)
+    var ax = Math.max(Math.abs((x0 || 0) * k), Math.abs((x1 || 0) * k), 100);
+    var ay = Math.max(Math.abs((y0 || 0) * k), Math.abs((y1 || 0) * k), 100);
+    if (tableBox) {
+      ax = Math.max(ax, Math.abs(tableBox.x0), Math.abs(tableBox.x1));
+      ay = Math.max(ay, Math.abs(tableBox.y0), Math.abs(tableBox.y1));
+    }
+    var Rx = Math.ceil(ax / step) * step, Ry = Math.ceil(ay / step) * step;
+    sizexmax = Rx; sizeymax = Ry;
+    var Th = window.Theme || {}, grid = new THREE.Group();
+    grid.name = 'Grid';
+    var minor = inches ? 2.54 : 10, l10 = [], l100 = [], x, y;
+    for (x = -Rx; x <= Rx + 1e-6; x += minor) (Math.abs(x / step - Math.round(x / step)) < 1e-6 ? l100 : l10).push([x, -Ry, x, Ry]);
+    for (y = -Ry; y <= Ry + 1e-6; y += minor) (Math.abs(y / step - Math.round(y / step)) < 1e-6 ? l100 : l10).push([-Rx, y, Rx, y]);
+    grid.add(segs(l10, Th.GRID_STEP_10_COLOR || 0xdddddd, Th.GRID_STEP_10_OPACITY || 0.3));
+    grid.add(segs(l100, Th.GRID_STEP_100_COLOR || 0xaaaaaa, Th.GRID_STEP_100_OPACITY || 0.6));
+    // eksenler: iki yöne
+    grid.add(segs([[-Rx, 0, Rx, 0]], Th.X_AXIS_LINE_COLOR || 0xcc0000, 1));
+    grid.add(segs([[0, -Ry, 0, Ry]], Th.Y_AXIS_LINE_COLOR || 0x00aa00, 1));
+    // etiketler: 100 mm'de bir (inçte 1"), eksi değerler dahil
+    var fs = Math.max(4, Math.min(30, Math.max(Rx, Ry) / 60)), unitTxt = inches ? 25.4 : 1;
+    for (x = -Rx; x <= Rx + 1e-6; x += step) { var sx = gridSprite(x, -fs * 1.6, String(Math.round(x / unitTxt)), Th.X_RULER_LABEL_COLOR || '#cc0000', fs); if (sx) grid.add(sx); }
+    for (y = -Ry; y <= Ry + 1e-6; y += step) { if (Math.abs(y) < 1e-6) continue; var sy = gridSprite(-fs * 2.2, y, String(Math.round(y / unitTxt)), Th.Y_RULER_LABEL_COLOR || '#00aa00', fs); if (sy) grid.add(sy); }
+    ['X', '-X'].forEach(function(t, i) { var s = gridSprite((i ? -1 : 1) * (Rx + fs * 3), 0, t, Th.X_RULER_LABEL_COLOR || '#cc0000', fs * 1.4); if (s) grid.add(s); });
+    ['Y', '-Y'].forEach(function(t, i) { var s = gridSprite(0, (i ? -1 : 1) * (Ry + fs * 3), t, Th.Y_RULER_LABEL_COLOR || '#00aa00', fs * 1.4); if (s) grid.add(s); });
+    gridsystem.children.length = 0;
+    gridsystem.add(grid);
+    helper = grid; // G-code yokken Reset View bu ızgaraya sığdırır (viewer.js genel değişkeni)
+  };
 
   // Orijinal çizimin yerine (websocket.js iş ofseti değişince çağırır)
   window.drawMachineCoordinates = function(status) { try { draw(status); } catch (e) { console.warn('Makine masası çizilemedi', e); } };
