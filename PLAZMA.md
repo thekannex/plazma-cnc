@@ -15,6 +15,7 @@ OpenBuilds CONTROL + OpenBuilds CAM'in tek pencerede birleşmiş, FluidNC plazma
 | Özellik | Nerede | Not |
 |---|---|---|
 | Çizim (CAM) sekmesi | Üst sekmeler | CAM pencere içinde açılır |
+| Home | Machine Control → **Home** grubu (bağlantısız da görünür) | **Home Tümü** = $H, **Home X / Y / Z** = $HX / $HY / $HZ (FluidNC). Alarm durumunda da gönderilir; iş çalışırken engellenir |
 | Çerçeve Gez | Machine Control şeridi → Plazma grubu (bağlantısız da görünür) | Önce Z güvenli yüksekliğe kalkar, **sadece kesim hareketlerinin** sınırını gezer |
 | Kuru Çalıştır | Machine Control şeridi → Plazma grubu | Torç/probe/bekleme/koordinat komutlarını çıkarır, güvenli Z'de gezer. Başta ve sonda `M5` |
 | Jog hızı | Sağdaki dikey Jog kaydırıcısı; altındaki hız yazısına tıkla → %100 hızı ayarla | Tıkla → %100 hızı (XY/Z mm/dk) ayarla. FluidNC'de kaydırıcı artık çalışıyor |

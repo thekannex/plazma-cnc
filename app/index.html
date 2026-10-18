@@ -534,6 +534,31 @@
                 <span class="title">Plazma</span>
               </div>
 
+              <!-- Plazma: home (FluidNC $H, $HX/$HY/$HZ); baglanti olmadan da gorunur -->
+              <div class="group" id="plazmaHomeGrp">
+                <button class="ribbon-button" onclick="plazmaHome('')" title="Tüm eksenleri home'a gönder ($H)">
+                  <span class="icon"><i class="fas fa-home" style="color:#ff6a00"></i></span>
+                  <span class="caption">Home<br>Tümü</span>
+                </button>
+                <div class="ribbon-group">
+                  <button class="ribbon-icon-button" onclick="plazmaHome('X')" title="Sadece X eksenini home'a gönder ($HX)">
+                    <span class="icon"><i class="fas fa-home"></i></span>
+                    <span class="caption">Home X</span>
+                  </button>
+                  <br>
+                  <button class="ribbon-icon-button" onclick="plazmaHome('Y')" title="Sadece Y eksenini home'a gönder ($HY)">
+                    <span class="icon"><i class="fas fa-home"></i></span>
+                    <span class="caption">Home Y</span>
+                  </button>
+                  <br>
+                  <button class="ribbon-icon-button" onclick="plazmaHome('Z')" title="Sadece Z eksenini home'a gönder ($HZ)">
+                    <span class="icon"><i class="fas fa-home"></i></span>
+                    <span class="caption">Home Z</span>
+                  </button>
+                </div>
+                <span class="title">Home</span>
+              </div>
+
               <div class="group">
 
                 <div>

@@ -14,6 +14,16 @@
 
   window.plazmaMachineReady = machineReady;
 
+  // Home: '' = tüm eksenler ($H), 'X' / 'Y' / 'Z' = tek eksen ($HX...). Açılışta FluidNC alarmdayken de
+  // gönderilir (alarmdan çıkmak için home gerekir); sadece iş çalışırken / duraklatılmışken engellenir.
+  window.plazmaHome = function (axis) {
+    var st = (typeof laststatus !== 'undefined' && laststatus.comms) ? laststatus.comms.connectionStatus : 0;
+    if (!(st >= 1)) { Metro.toast.create("Makineye bağlı değil", null, 3000, "bg-red fg-white"); return; }
+    if (st === 3 || st === 4) { Metro.toast.create("İş çalışırken home yapılamaz. Önce işi durdurun.", null, 4000, "bg-red fg-white"); return; }
+    sendGcode('$H' + (axis || ''));
+    Metro.toast.create('Home: ' + (axis ? axis + ' ekseni' : 'tüm eksenler') + ' (' + '$H' + (axis || '') + ')', null, 3000, 'bg-green fg-white');
+  };
+
   function askParams(title, withSpeed, cb) {
     var z = getNum('plazmaDrySafeZ', 10), f = getNum('plazmaFrameSpeed', 3000);
     Metro.dialog.create({
