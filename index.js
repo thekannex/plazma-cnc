@@ -205,6 +205,25 @@ if (isElectron()) {
 }
 
 const BrowserWindow = electron.BrowserWindow;
+
+// Plazma: programi tamamen kapat. Once pencereler ve cizim (renderer) surecleri kapatilir, sonra cikilir.
+// Dogrudan exit(0) cagrilinca Windows'ta renderer sureci sahipsiz kalip tek-ornek kilidini tutuyordu:
+// program arkada kaliyor ve kisayoldan tekrar acilmiyordu.
+function plazmaQuitApp() {
+  forceQuit = true;
+  var pids = [];
+  try { if (appIcon) appIcon.destroy(); } catch (e) {}
+  try {
+    BrowserWindow.getAllWindows().forEach(function(w) {
+      try { pids.push(w.webContents.getOSProcessId()); } catch (e) {}
+      try { w.destroy(); } catch (e) {}
+    });
+  } catch (e) {}
+  setTimeout(function() {
+    pids.forEach(function(pid) { try { if (pid && pid !== process.pid) process.kill(pid); } catch (e) {} });
+    electronApp.exit(0);
+  }, 400);
+}
 const Tray = electron.Tray;
 const nativeImage = require('electron').nativeImage
 const Menu = require('electron').Menu
@@ -897,6 +916,10 @@ io.on("connection", function(socket) {
     } else {
       jogWindow.setFullScreen(true);
     }
+  });
+
+  socket.on("plazmaQuit", function(data) {
+    plazmaQuitApp();
   });
 
   socket.on("quit", function(data) {
@@ -3237,11 +3260,7 @@ if (isElectron()) {
             return;
           }
         }
-        forceQuit = true;
-        if (appIcon) {
-          appIcon.destroy();
-        }
-        electronApp.exit(0);
+        plazmaQuitApp();
       });
 
       // Emitted when the window is closed.

@@ -107,6 +107,38 @@
   // Eksen işareti sonradan öğrenilirse (ilk hareketlerde) yeniden çiz
   setInterval(function() { if (typeof laststatus !== 'undefined' && laststatus && laststatus.comms && laststatus.comms.connectionStatus >= 1) window.drawMachineCoordinates(laststatus); }, 2000);
 
+  // ---------- Tanıtılmış artık saclar ----------
+  // "Artık Tanıt" ile kaydedilen artıklar masanın üstünde gerçek yerlerinde yeşil çizilir
+  // (iş koordinatı = ilk köşe (makine) + nokta − iş ofseti).
+  var remGroup = null, remKey = '';
+  function drawRemnants(list) {
+    if (typeof THREE === 'undefined' || typeof workspace === 'undefined') return;
+    var st = typeof laststatus !== 'undefined' ? laststatus : null;
+    var o = st && st.machine && st.machine.position && st.machine.position.offset;
+    if (!o) return;
+    var ox = parseFloat(o.x) || 0, oy = parseFloat(o.y) || 0;
+    var key = JSON.stringify([list.map(function(r) { return r.id; }), ox.toFixed(2), oy.toFixed(2)]);
+    if (key === remKey && remGroup && remGroup.parent === workspace) return;
+    remKey = key;
+    if (remGroup) workspace.remove(remGroup);
+    remGroup = new THREE.Group();
+    remGroup.name = 'Tanitilan artiklar';
+    list.forEach(function(r) {
+      if (!r.points || r.points.length < 3 || !r.origin) return;
+      var bx = r.origin.x - ox, by = r.origin.y - oy;
+      var pts = r.points.concat([r.points[0]]).map(function(p) { return new THREE.Vector3(bx + p[0], by + p[1], -0.4); });
+      remGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x00c853 })));
+      var cx = 0, cy = 0;
+      r.points.forEach(function(p) { cx += p[0]; cy += p[1]; });
+      if (typeof makeSprite === 'function') remGroup.add(makeSprite(scene, 'webgl', { x: bx + cx / r.points.length, y: by + cy / r.points.length, z: 0, text: r.name, color: '#00a83e', size: 12 }));
+    });
+    workspace.add(remGroup);
+  }
+  setInterval(function() {
+    if (typeof laststatus === 'undefined' || !laststatus || !laststatus.comms || laststatus.comms.connectionStatus < 1) return;
+    $.getJSON('/api/plazma/remnants').done(function(list) { try { drawRemnants(list || []); } catch (e) {} });
+  }, 5000);
+
   // Görünümü masaya ve torca sığdır
   window.plazmaFitTable = function() {
     if (typeof viewExtents !== 'function') return;
