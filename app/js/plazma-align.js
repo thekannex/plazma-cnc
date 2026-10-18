@@ -142,19 +142,40 @@
 
   // ---------- Sac hizalama sihirbazı ----------
   var A = { p1: null, p2: null };
+  // İş sıfırı köşesi: fl sol ön, fr sağ ön, bl sol arka, br sağ arka. Yüklü G-code'da (CAM yazar) varsa o,
+  // yoksa en son seçilen. Kenar noktası köşenin bulunduğu (ön / arka) kenar boyunca alınır.
+  var CORNERS = { fl: 'sol ön', fr: 'sağ ön', bl: 'sol arka', br: 'sağ arka' };
+  function corner() {
+    var src = (typeof gcode === 'string' && gcode) ? gcode : (typeof editor !== 'undefined' ? editor.getValue() : '');
+    var m = /PLAZMA-SIFIR-KOSE:\s*(fl|fr|bl|br)/i.exec(src || '');
+    var c = m ? m[1].toLowerCase() : ls('plazmaZeroCorner', 'fl');
+    return CORNERS[c] ? c : 'fl';
+  }
+  window.plazmaZeroCorner = corner;
+  function stepText(c) {
+    return { s1: 'Torcu sacın <b>' + CORNERS[c] + ' köşesine</b> getirin (torç ucu tam köşenin üstünde).',
+      s2: 'Torcu sacın <b>' + (c.charAt(0) === 'b' ? 'arka' : 'ön') + ' kenarı</b> boyunca köşeden mümkün olduğunca uzağa (en az 500 mm) götürüp torç ucunu tam kenarın üstüne getirin.' };
+  }
+
   window.plazmaAlignWizard = function() {
     A = { p1: null, p2: null };
-    var cur = plazmaAlignAngle();
+    var cur = plazmaAlignAngle(), c0 = corner(), t0 = stepText(c0);
     var p = panel('plazmaAlignPanel', '<i class="fas fa-ruler-combined" style="color:#ff6a00"></i> Sac Hizalama',
       '<div class="pf-hint" style="margin-bottom:6px">Şu an: <b>' + (cur ? cur.toFixed(3) + '° döndürme aktif' : 'hizalama kapalı') + '</b>. Bu panel açıkken jog ile torcu hareket ettirebilirsiniz.</div>' +
-      '<div class="step" id="paS1"><b>1.</b> Torcu sacın <b>sol alt köşesine</b> getirin (torç ucu tam köşenin üstünde).<br>' +
+      '<div style="margin-bottom:6px">İş sıfırı köşesi: <select id="paCorner" style="height:22px">' +
+      Object.keys(CORNERS).map(function(k) { return '<option value="' + k + '"' + (k === c0 ? ' selected' : '') + '>' + CORNERS[k] + '</option>'; }).join('') + '</select></div>' +
+      '<div class="step" id="paS1"><b>1.</b> <span id="paT1">' + t0.s1 + '</span><br>' +
       '<label><input type="checkbox" id="paZero" checked> İş sıfırını (X0 Y0) buraya ayarla</label><br>' +
       '<button class="pf-btn pri" data-a="p1">Köşe burası</button> <span class="pos" id="paP1"></span></div>' +
-      '<div class="step" id="paS2"><b>2.</b> Torcu sacın <b>alt kenarı</b> boyunca köşeden mümkün olduğunca uzağa (en az 500 mm) götürüp torç ucunu tam kenarın üstüne getirin.<br>' +
+      '<div class="step" id="paS2"><b>2.</b> <span id="paT2">' + t0.s2 + '</span><br>' +
       '<button class="pf-btn pri" data-a="p2">Kenar noktası burası</button> <span class="pos" id="paP2"></span></div>' +
       '<div id="paRes" style="margin:6px 0;font-size:13px"></div>' +
       '<button class="pf-btn pri" data-a="apply" disabled>Hizalamayı uygula</button> <button class="pf-btn" data-a="off">Hizalamayı kapat</button>' +
       '<div class="pf-hint" style="margin-top:6px;color:#666">Hizalama, Çalıştır, Kuru Çalıştır ve Çerçeve Gez\'e uygulanır. Önce <b>Çerçeve Gez</b> ile kontrol edin. 3B görünüm döndürülmemiş halini gösterir.</div>');
+    p.on('change', '#paCorner', function() {
+      var t = stepText(this.value); lsSet('plazmaZeroCorner', this.value);
+      $('#paT1').html(t.s1); $('#paT2').html(t.s2);
+    });
     p.on('click', '[data-a]', function() {
       var a = $(this).data('a');
       if (a === 'p1') {
@@ -176,7 +197,9 @@
       }
       if (A.p1 && A.p2) {
         var dx = A.p2.x - A.p1.x, dy = A.p2.y - A.p1.y, L = Math.hypot(dx, dy);
-        A.angle = Math.atan2(dy, dx) * 180 / Math.PI;
+        // kenar yönü: sol köşeden +X'e (0°), sağ köşeden -X'e (180°); eğiklik bu yöne göre
+        var exp = ($('#paCorner').val() || 'fl').charAt(1) === 'r' ? 180 : 0;
+        A.angle = ((Math.atan2(dy, dx) * 180 / Math.PI - exp) % 360 + 540) % 360 - 180;
         var warn = L < 300 ? '<br><span style="color:#c62828">⚠ Noktalar çok yakın (' + L.toFixed(0) + ' mm): açı hassas olmaz, daha uzağa gidin.</span>' : '';
         var big = Math.abs(A.angle) > 10 ? '<br><span style="color:#c62828">⚠ Açı büyük. Kenar noktasını alt kenarda mı aldınız?</span>' : '';
         $('#paRes').html('Eğiklik: <b>' + (A.angle >= 0 ? '+' : '') + A.angle.toFixed(3) + '°</b> (ölçüm boyu ' + L.toFixed(0) + ' mm, 3000 mm\'de ' + (Math.tan(A.angle * Math.PI / 180) * 3000).toFixed(1) + ' mm kayma)' + warn + big);
@@ -190,7 +213,7 @@
   window.plazmaRemnantWizard = function() {
     R = { pts: [] };
     var p = panel('plazmaRemPanel', '<i class="fas fa-draw-polygon" style="color:#ff6a00"></i> Artık Sac Tanıt',
-      '<div class="pf-hint" style="margin-bottom:6px">Torcu artığın köşelerine sırayla (kenar boyunca, saat yönünün tersine) götürüp her köşede <b>Nokta ekle</b>\'ye basın. <b>İlk nokta artığın iş sıfırı olur</b> (tercihen sol alt köşe).</div>' +
+      '<div class="pf-hint" style="margin-bottom:6px">Torcu artığın köşelerine sırayla (kenar boyunca, saat yönünün tersine) götürüp her köşede <b>Nokta ekle</b>\'ye basın. <b>İlk nokta artığın iş sıfırı olur</b>: ' + CORNERS[corner()] + ' köşesinden başlayın.</div>' +
       '<div>Ad: <input type="text" id="prName" value="Artık ' + new Date().toLocaleDateString('tr-TR') + '"></div>' +
       '<div style="margin-top:6px"><button class="pf-btn pri" data-a="add">+ Nokta ekle</button><button class="pf-btn" data-a="undo">Son noktayı sil</button></div>' +
       '<div id="prList" class="pos" style="margin:6px 0;max-height:160px;overflow:auto"></div>' +

@@ -658,6 +658,30 @@
     return head.concat(out, tail).join('\n');
   }
 
+  // İş sıfırı köşesi (Settings → Plasma: İş Sıfırı Köşesi): fl sol ön, fr sağ ön, bl sol arka, br sağ arka
+  var CORNER_NAMES = { fl: 'sol on', fr: 'sag on', bl: 'sol arka', br: 'sag arka' };
+  function zeroCorner() {
+    var c = $('#plazmaZeroCorner').val() || localStorage.getItem('plazmaZeroCorner') || 'fl';
+    return CORNER_NAMES[c] ? c : 'fl';
+  }
+  // Mutlak (G90) XY hareketlerini (dx, dy) kadar geri öteler; yay merkezleri (I/J) göreli olduğu için değişmez.
+  // G53 / G10 / G92 / G28 / G30 satırlarına ve notlara dokunulmaz.
+  function translateGcode(g, dx, dy) {
+    var rel = false;
+    return g.split('\n').map(function(line) {
+      var ci = line.search(/[;(]/), code = ci >= 0 ? line.slice(0, ci) : line, cmt = ci >= 0 ? line.slice(ci) : '';
+      if (/G\s*0*91(?![\d.])/i.test(code)) rel = true;
+      if (/G\s*0*90(?![\d.])/i.test(code)) rel = false;
+      if (rel || /G\s*0*(53|10|92|28|30)(?![\d.])/i.test(code) || /^\s*\$/.test(code)) return line;
+      var out = code.replace(/([XY])\s*(-?[\d.]+)/gi, function(m, l, v) {
+        return l + (parseFloat(v) - (l.toUpperCase() === 'X' ? dx : dy)).toFixed(4);
+      });
+      return out + cmt;
+    }).join('\n');
+  }
+  NS.zeroCorner = zeroCorner;
+  NS.translateGcode = translateGcode;
+
   if (typeof window.prepgcodefile === 'function') {
     var origPrep = window.prepgcodefile;
     window.prepgcodefile = function() {
@@ -665,11 +689,18 @@
       try { if (NS.active) g = reorderGcode(g); } catch (e) { console.error('Plazma kesim sırası hatası, orijinal sıra kullanıldı', e); }
       try {
         var sh = NS.active && st.result && st.result.sheets[NS.active.idx];
+        var rem = sh && sh.remnant && st.remnants.filter(function(r) { return r.id === sh.sheetId; })[0];
+        var corner = zeroCorner();
         if (sh) { // CONTROL iş öncesi kontrol: kesim sac sınırları içinde mi
           var sb = ringsBBox(sheetDef(sh));
-          g = '; PLAZMA-SAC: X' + fmt(sb[0]) + ' Y' + fmt(sb[1]) + ' X' + fmt(sb[2]) + ' Y' + fmt(sb[3]) + ' (' + sh.name + ')\n' + g;
+          // İş sıfırı köşesi sol ön değilse sac G-code'da o köşe X0 Y0 olacak şekilde kaydırılır.
+          // Torçla tanıtılmış artıkta kaydırma yok: şekil zaten ilk köşeye (iş sıfırı) göredir.
+          var dx = 0, dy = 0;
+          if (!(rem && rem.digitized)) { dx = corner.charAt(1) === 'r' ? sb[2] : sb[0]; dy = corner.charAt(0) === 'b' ? sb[3] : sb[1]; }
+          if (dx || dy) g = translateGcode(g, dx, dy);
+          g = '; PLAZMA-SAC: X' + fmt(sb[0] - dx) + ' Y' + fmt(sb[1] - dy) + ' X' + fmt(sb[2] - dx) + ' Y' + fmt(sb[3] - dy) + ' (' + sh.name + ')\n' + g;
         }
-        var rem = sh && sh.remnant && st.remnants.filter(function(r) { return r.id === sh.sheetId; })[0];
+        if (corner !== 'fl') g = '; PLAZMA-SIFIR-KOSE: ' + corner + ' (' + CORNER_NAMES[corner] + ')\n' + g;
         if (rem && rem.digitized) {
           var hdr = '; PLAZMA: HIZALAMA YOK (torcla tanitilmis artik sac: ' + rem.name + ')\n' +
             (rem.origin ? '; PLAZMA-SIFIR: X' + rem.origin.x + ' Y' + rem.origin.y + '\n' : '');

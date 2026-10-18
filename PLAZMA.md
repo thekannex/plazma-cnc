@@ -23,6 +23,14 @@ OpenBuilds CONTROL + OpenBuilds CAM'in tek pencerede birleşmiş, FluidNC plazma
 | Plasma On/Off | Tool menüsü | `M3 S1000` / `M3 S0` |
 | Hazır makrolar | Macros sekmesi | Torç Testi, Yoklama Testi, Z Sıfırla (IHS), Torcu Kaldır, Sıfıra Git |
 
+### İş sıfırı köşesi
+| Özellik | Nerede | Not |
+|---|---|---|
+| Sıfır köşesi | Çizim → Settings → Advanced → **Plasma: İş Sıfırı Köşesi** (sol ön / sağ ön / sol arka / sağ arka; makine profiline kaydedilir) | **Nesting**: G-code o köşe X0 Y0 olacak şekilde kaydırılır (ör. sağ ön: sac X -3000…0). **Elle hazırlanan iş**: Sıfır Noktası aracının varsayılan referansı bu köşe olur → "Sıfıra Taşı". G-code'a köşe bilgisi yazılır; CONTROL iş öncesi kontrol kesimin sıfırın doğru tarafında olduğunu denetler |
+| Sac Hizala | Panelde **İş sıfırı köşesi** seçimi (yüklü G-code'dan gelir) | 1. adım seçilen köşe, 2. adım o köşenin ön / arka kenarı boyunca. Eğiklik kenar yönüne göre hesaplanır |
+
+> Önce eksen yönlerini doğrulayın: makineye önden bakınca **X+ sağa, Y+ arkaya** gitmeli. Ters eksen kesimi ayna görüntüsü yapar; FluidNC config.yaml'da direction_pin'e :low ekleyip/kaldırarak ve homing positive_direction ile düzeltilir.
+
 ### Makine profilleri
 | Özellik | Nerede | Not |
 |---|---|---|

@@ -12,10 +12,23 @@
     ['bl', 'Sol Alt'], ['bc', 'Alt Orta'], ['br', 'Sağ Alt']
   ];
 
+  // İş sıfırı köşesi (Settings) → varsayılan referans noktası
+  var CORNER_ANCHOR = { fl: 'bl', fr: 'br', bl: 'tl', br: 'tr' };
+  function cornerAnchor() { return CORNER_ANCHOR[localStorage.getItem('plazmaZeroCorner')] || 'bl'; }
   function getAnchor() {
     var a = localStorage.getItem('plazmaAnchor');
-    return ANCHORS.some(function(x) { return x[0] === a; }) ? a : 'bl';
+    return ANCHORS.some(function(x) { return x[0] === a; }) ? a : cornerAnchor();
   }
+  // Ayarlarda sıfır köşesi değişince Sıfır Noktası aracının referansı da o köşeye geçer
+  $(function() {
+    var last = localStorage.getItem('plazmaZeroCorner') || 'fl';
+    $('#savesettings').on('click', function() {
+      setTimeout(function() {
+        var c = localStorage.getItem('plazmaZeroCorner') || 'fl';
+        if (c !== last) { localStorage.setItem('plazmaAnchor', cornerAnchor()); last = c; }
+      }, 0);
+    });
+  });
 
   function toast(msg, cls, ms) {
     Metro.toast.create(msg, null, ms || 3000, cls || 'bg-green fg-white');

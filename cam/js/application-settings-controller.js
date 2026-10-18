@@ -42,6 +42,7 @@ localParams = [
   ['plazmaStartOpt', false], // Plazma: başlangıç noktasını köşeye / düz kenara al
   ['plazmaHolesFirst', false], // Plazma: toolpath içinde önce delikler
   ['plazmaRapidRate', false], // Plazma: boşta gezme (G0) hızı — simülasyon ve süre tahmini
+  ['plazmaZeroCorner', false], // Plazma: iş sıfırı köşesi (fl / fr / bl / br)
   ['machinetype', true],
   ['performanceLimit', false]
 ];
@@ -736,6 +737,18 @@ $(document).ready(function() {
                              <label class="cell-sm-6">Plasma: Boşta Gezme Hızı (G0, mm/dk)<br><span class="text-small">Makinenin azami hızı ($110). Makine G0'ı zaten bu hızla yapar; bu değer simülasyon ve süre tahmini içindir</span></label>
                              <div class="cell-sm-6">
                                <input type="number" step="100" min="100" class="form-control form-control-sm" id="plazmaRapidRate" placeholder="8000">
+                             </div>
+                         </div>
+
+                         <div class="row mb-2">
+                             <label class="cell-sm-6">Plasma: İş Sıfırı Köşesi<br><span class="text-small">Sacın hangi köşesi X0 Y0 (makineye önden bakınca). Nesting G-code'u bu köşeye göre kaydırılır; Sıfır Noktası aracı bu köşeyi varsayılan alır</span></label>
+                             <div class="cell-sm-6">
+                               <select id="plazmaZeroCorner" class="form-control form-control-sm">
+                                 <option value="fl">Sol ön (standart)</option>
+                                 <option value="fr">Sağ ön</option>
+                                 <option value="bl">Sol arka</option>
+                                 <option value="br">Sağ arka</option>
+                               </select>
                              </div>
                          </div>
 

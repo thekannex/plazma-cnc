@@ -35,6 +35,8 @@
         if (mm && !code.trim() && r.materials.indexOf(mm[1]) < 0) r.materials.push(mm[1]);
         var sh = /PLAZMA-SAC:\s*X(-?[\d.]+)\s*Y(-?[\d.]+)\s*X(-?[\d.]+)\s*Y(-?[\d.]+)/i.exec(cmt);
         if (sh) r.sheet = { x0: +sh[1], y0: +sh[2], x1: +sh[3], y1: +sh[4] };
+        var zc = /PLAZMA-SIFIR-KOSE:\s*(fl|fr|bl|br)/i.exec(cmt);
+        if (zc) r.corner = zc[1].toLowerCase();
       }
       var words = code.replace(/\s+/g, '').match(/[A-Z][-+]?(\d+\.?\d*|\.\d+)/g) || [];
       var w = {}, gs = [], ms = [];
@@ -161,7 +163,15 @@
 
     var c = a.cut;
     if (c) {
-      if (c.x0 < -0.5 || c.y0 < -0.5) out.warn.push('Kesim iş sıfırının ' + (c.x0 < -0.5 ? 'solunda (X ' + fmt(c.x0, 1) + ')' : '') + (c.x0 < -0.5 && c.y0 < -0.5 ? ' ve ' : '') + (c.y0 < -0.5 ? 'altında (Y ' + fmt(c.y0, 1) + ')' : '') + '. Sacın sol alt köşesi sıfırsa bu kısım sacın dışında kalır.');
+      // Sıfır köşesine göre kesim sıfırın hangi tarafında olmalı (sol ön: +X +Y, sağ ön: -X +Y, ...)
+      var corner = a.corner || 'fl', right = corner.charAt(1) === 'r', back = corner.charAt(0) === 'b';
+      var cn = { fl: 'sol ön', fr: 'sağ ön', bl: 'sol arka', br: 'sağ arka' }[corner];
+      var bx = right ? c.x1 > 0.5 : c.x0 < -0.5, by = back ? c.y1 > 0.5 : c.y0 < -0.5;
+      if (bx || by) out.warn.push('Kesim iş sıfırının ' +
+        (bx ? (right ? 'sağında (X ' + fmt(c.x1, 1) + ')' : 'solunda (X ' + fmt(c.x0, 1) + ')') : '') + (bx && by ? ' ve ' : '') +
+        (by ? (back ? 'arkasında (Y ' + fmt(c.y1, 1) + ')' : 'önünde (Y ' + fmt(c.y0, 1) + ')') : '') +
+        '. Sacın ' + cn + ' köşesi sıfırsa bu kısım sacın dışında kalır.');
+      if (corner !== 'fl') out.info.push('İş sıfırı sacın <b>' + cn + '</b> köşesinde olmalı.');
       if (a.sheet) {
         var sh = a.sheet, t = 0.5;
         if (c.x0 < sh.x0 - t || c.y0 < sh.y0 - t || c.x1 > sh.x1 + t || c.y1 > sh.y1 + t) out.warn.push('Kesim sacın dışına taşıyor: kesim X ' + fmt(c.x0, 1) + '…' + fmt(c.x1, 1) + ' Y ' + fmt(c.y0, 1) + '…' + fmt(c.y1, 1) + ', sac X ' + fmt(sh.x0) + '…' + fmt(sh.x1) + ' Y ' + fmt(sh.y0) + '…' + fmt(sh.y1) + '.');
