@@ -145,6 +145,30 @@
     setTimeout(function () { try { jogOverride(localStorage.getItem('jogOverride') || 100); } catch (e) {} }, 1500);
   });
 
+  // ---------- Makine koordinatı (MPos) göstergesi ----------
+  // Büyük rakamlar iş koordinatıdır (G54). Her eksen kutusunun köşesine makine koordinatı (home'a göre)
+  // küçük yazılır; orijinalde sadece fareyle üstüne gelince ipucu olarak görünüyordu.
+  $(function () {
+    $('head').append('<style>.dro{position:relative}.plazmaMpos{position:absolute;left:34px;top:0;font-size:11px;line-height:12px;color:#666;font-weight:600;font-family:Consolas,monospace;pointer-events:none;white-space:nowrap}</style>');
+    var axes = ['x', 'y', 'z'];
+    axes.forEach(function (a) {
+      var box = $('#' + a + 'PosDro');
+      if (box.length && !box.find('.plazmaMpos').length) box.append('<span class="plazmaMpos" id="plazmaMpos' + a + '" title="Makine koordinatı (home\'a göre)"></span>');
+    });
+    setInterval(function () {
+      var st = typeof laststatus !== 'undefined' ? laststatus : null;
+      var p = st && st.machine && st.machine.position, ok = st && st.comms && st.comms.connectionStatus >= 1 && p && p.work;
+      axes.forEach(function (a) {
+        var el = document.getElementById('plazmaMpos' + a);
+        if (!el) return;
+        if (!ok) { el.textContent = ''; return; }
+        var v = parseFloat(p.work[a]) + parseFloat((p.offset || {})[a] || 0), inch = typeof unit !== 'undefined' && unit === 'in';
+        var t = isFinite(v) ? 'M: ' + (inch ? v / 25.4 : v).toFixed(3) : '';
+        if (el.textContent !== t) el.textContent = t;
+      });
+    }, 250);
+  });
+
   // ---------- Z için ayrı jog adımı ----------
   // Mesafe satırının altına "Z adımı" satırı eklenir. Seçiliyse adımlı jog'da Z bu mesafeyle gider
   // (ör. X/Y 100 mm, Z 0.1 mm); "Z = XY" seçiliyse orijinal davranış. Sürekli jog'u etkilemez.
