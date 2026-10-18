@@ -209,7 +209,26 @@ const BrowserWindow = electron.BrowserWindow;
 // Plazma: programi tamamen kapat. Once pencereler ve cizim (renderer) surecleri kapatilir, sonra cikilir.
 // Dogrudan exit(0) cagrilinca Windows'ta renderer sureci sahipsiz kalip tek-ornek kilidini tutuyordu:
 // program arkada kaliyor ve kisayoldan tekrar acilmiyordu.
-function plazmaQuitApp() {
+function plazmaLog(msg) {
+  try {
+    var dir = require('electron').app.getPath('userData');
+    fs.appendFileSync(path.join(dir, 'plazma-log.txt'), new Date().toISOString() + ' ' + msg + '\n');
+  } catch (e) {}
+}
+// Onceki oturumdan sahipsiz kalmis (ana sureci olmayan) alt surecleri kapat. Sadece paketli surumde
+// ve Windows'ta; arka planda calisir, acilisi bekletmez.
+function plazmaKillOrphans() {
+  try {
+    if (process.platform !== 'win32' || !require('electron').app.isPackaged) return;
+    var exe = path.basename(process.execPath).replace(/'/g, '');
+    var ps = "Get-CimInstance Win32_Process -Filter \"Name='" + exe + "'\" | Where-Object { $_.CommandLine -match '--type=' -and -not (Get-Process -Id $_.ParentProcessId -ErrorAction SilentlyContinue) } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }";
+    require('child_process').spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', ps], { windowsHide: true, detached: true, stdio: 'ignore' }).unref();
+  } catch (e) {}
+}
+function plazmaQuitApp(reason) {
+  if (plazmaQuitApp.started) return;
+  plazmaQuitApp.started = true;
+  plazmaLog('Kapaniyor: ' + (reason || 'bilinmiyor'));
   forceQuit = true;
   var pids = [];
   try { if (appIcon) appIcon.destroy(); } catch (e) {}
@@ -607,6 +626,31 @@ app.get('/api/plazma/remnants', (req, res) => {
   res.header("Access-Control-Allow-Origin", "*");
   res.json(plazmaReadRemnants());
 })
+// CAM (baska port) silme / guncelleme yapabilsin: CORS on istegi
+app.options('/api/plazma/remnants/:id', (req, res) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type");
+  res.sendStatus(204);
+})
+function plazmaWriteRemnants(list, res) {
+  try { fs.writeFileSync(plazmaRemnantFile(), JSON.stringify(list)); return true; } catch (e) { res.status(500).json({ error: e.message }); return false; }
+}
+app.delete('/api/plazma/remnants/:id', (req, res) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  var list = plazmaReadRemnants(), rest = list.filter(function(r) { return String(r.id) !== String(req.params.id); });
+  if (rest.length === list.length) return res.status(404).json({ error: 'yok' });
+  if (plazmaWriteRemnants(rest, res)) res.json({ ok: true });
+})
+// Ad ve gorunurluk degistir: { name, hidden }
+app.post('/api/plazma/remnants/:id', express.json({ limit: '64kb' }), (req, res) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  var list = plazmaReadRemnants(), r = list.filter(function(x) { return String(x.id) === String(req.params.id); })[0], b = req.body || {};
+  if (!r) return res.status(404).json({ error: 'yok' });
+  if (typeof b.name === 'string' && b.name.trim()) r.name = b.name.trim().slice(0, 80);
+  if (typeof b.hidden === 'boolean') r.hidden = b.hidden;
+  if (plazmaWriteRemnants(list, res)) res.json(r);
+})
 app.post('/api/plazma/remnants', express.json({ limit: '1mb' }), (req, res) => {
   res.header("Access-Control-Allow-Origin", "*");
   var r = req.body || {};
@@ -919,7 +963,7 @@ io.on("connection", function(socket) {
   });
 
   socket.on("plazmaQuit", function(data) {
-    plazmaQuitApp();
+    plazmaQuitApp('kapat dugmesi');
   });
 
   socket.on("quit", function(data) {
@@ -3085,10 +3129,7 @@ if (isElectron()) {
           label: "Quit",
           accelerator: "Command+Q",
           click: function() {
-            if (appIcon) {
-              appIcon.destroy();
-            }
-            electronApp.exit(0);
+            plazmaQuitApp('menu Quit');
           }
         }]
       }, {
@@ -3159,10 +3200,7 @@ if (isElectron()) {
         }, {
           label: 'Plasma Kontrol\'den çık',
           click() {
-            if (appIcon) {
-              appIcon.destroy();
-            }
-            electronApp.exit(0);
+            plazmaQuitApp('tepsi menusu');
           }
         }])
         if (appIcon) {
@@ -3196,8 +3234,7 @@ if (isElectron()) {
         const dockMenu = Menu.buildFromTemplate([{
           label: 'Plasma Kontrol\'den çık',
           click() {
-            // appIcon.destroy();
-            electronApp.exit(0);
+            plazmaQuitApp('dock menusu');
           }
         }])
         electronApp.dock.setMenu(dockMenu)
@@ -3207,6 +3244,8 @@ if (isElectron()) {
 
     function createJogWindow() {
       // Create the browser window.
+      plazmaLog('Basladi (surum ' + electronApp.getVersion() + ')');
+      plazmaKillOrphans();
       jogWindow = new BrowserWindow({
         // 1366 * 768 == minimum to cater for
         width: 1000,
@@ -3241,6 +3280,8 @@ if (isElectron()) {
       jogWindow.loadURL(`http://localhost:${config.webPort}/`);
       //jogWindow.webContents.openDevTools()
 
+      // Plazma: cizim sureci coker / kapanirsa nedenini gunluge yaz
+      jogWindow.webContents.on('render-process-gone', function(e, d) { plazmaLog('Cizim sureci kapandi: ' + (d && d.reason) + ' kod ' + (d && d.exitCode)); });
       jogWindow.on('close', function(event) {
         // Plazma: pencere kapatilinca (Alt+F4, gorev cubugu) tepsiye gizlenmez, program kapanir.
         // Kesim suruyorsa once onay istenir: akis yarida kesilirse torc acik kalabilir.
@@ -3260,7 +3301,7 @@ if (isElectron()) {
             return;
           }
         }
-        plazmaQuitApp();
+        plazmaQuitApp('pencere kapatildi (Alt+F4 / gorev cubugu)');
       });
 
       // Emitted when the window is closed.
@@ -3288,20 +3329,14 @@ if (isElectron()) {
       // On OS X it is common for applications and their menu bar
       // to stay active until the user quits explicitly with Cmd + Q
       // We don't take that route, we close it completely
-      if (appIcon) {
-        appIcon.destroy();
-      }
-      electronApp.exit(0);
+      plazmaQuitApp('will-quit');
     });
 
     // Quit when all windows are closed.
     electronApp.on('window-all-closed', function() {
       // On OS X it is common for applications and their menu bar
       // to stay active until the user quits explicitly with Cmd + Q
-      if (appIcon) {
-        appIcon.destroy();
-      }
-      electronApp.exit(0);
+      plazmaQuitApp('tum pencereler kapandi');
     });
 
     electronApp.on('activate', function() {

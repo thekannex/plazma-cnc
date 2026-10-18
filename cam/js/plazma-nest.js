@@ -718,13 +718,20 @@
     $.getJSON(base + '/api/plazma/remnants').done(function(list) {
       st.importedRem = st.importedRem || [];
       var added = 0;
+      // Artık listesinden silinenler sac listesinden de kalkar
+      var ids = (list || []).map(function(r) { return String(r.id); });
+      var before = st.remnants.length;
+      st.remnants = st.remnants.filter(function(r) { return !r.digitized || ids.indexOf(String(r.id).replace(/^dg/, '')) >= 0; });
+      st.importedRem = st.importedRem.filter(function(id) { return ids.indexOf(String(id)) >= 0; });
+      var removed = before - st.remnants.length;
       (list || []).forEach(function(r) {
         if (st.importedRem.indexOf(r.id) >= 0 || !r.points || r.points.length < 3) return;
         st.importedRem.push(r.id);
         st.remnants.push({ id: 'dg' + r.id, name: r.name + ' (tanıtılan)', rings: [r.points], qty: 1, use: true, digitized: true, origin: r.origin });
         added++;
       });
-      if (added) { save(); if (ov && ov.is(':visible')) renderLeft(); toast(added + ' tanıtılmış artık sac eklendi'); }
+      if (added || removed) { save(); if (ov && ov.is(':visible')) renderLeft(); }
+      if (added) toast(added + ' tanıtılmış artık sac eklendi');
     });
   }
   var remPoll = null;

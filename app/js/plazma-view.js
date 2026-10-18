@@ -117,14 +117,14 @@
     var o = st && st.machine && st.machine.position && st.machine.position.offset;
     if (!o) return;
     var ox = parseFloat(o.x) || 0, oy = parseFloat(o.y) || 0;
-    var key = JSON.stringify([list.map(function(r) { return r.id; }), ox.toFixed(2), oy.toFixed(2)]);
+    var key = JSON.stringify([list.map(function(r) { return [r.id, r.name, !!r.hidden]; }), ox.toFixed(2), oy.toFixed(2)]);
     if (key === remKey && remGroup && remGroup.parent === workspace) return;
     remKey = key;
     if (remGroup) workspace.remove(remGroup);
     remGroup = new THREE.Group();
     remGroup.name = 'Tanitilan artiklar';
     list.forEach(function(r) {
-      if (!r.points || r.points.length < 3 || !r.origin) return;
+      if (r.hidden || !r.points || r.points.length < 3 || !r.origin) return; // listede gizlenmiş
       var bx = r.origin.x - ox, by = r.origin.y - oy;
       var pts = r.points.concat([r.points[0]]).map(function(p) { return new THREE.Vector3(bx + p[0], by + p[1], -0.4); });
       remGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x00c853 })));
