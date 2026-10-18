@@ -46,6 +46,14 @@
     g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0xff6a00, transparent: true, opacity: 0.8 })));
     machineCoordinateSpace = g;
     workspace.add(g);
+    // G-code yüklü değilken ızgara da masanın alanını göstersin (orijinal 0…300 sabit kare yerine).
+    // G-code yüklenince orijinal kod ızgarayı işin sınırlarına göre yeniden çizer.
+    var noGcode = typeof object === 'undefined' || !object || !object.userData || !object.userData.bbbox2;
+    if (noGcode && typeof redrawGrid === 'function') {
+      xmin = x0; xmax = x1; ymin = y0; ymax = y1; // viewer.js'in genel değişkenleri (birim değişince bunlar kullanılır)
+      if (typeof unit !== 'undefined' && unit === 'in') redrawGrid(x0 / 25.4, x1 / 25.4, y0 / 25.4, y1 / 25.4, true);
+      else redrawGrid(x0, x1, y0, y1, false);
+    }
   }
 
   // Orijinal çizimin yerine (websocket.js iş ofseti değişince çağırır)
