@@ -82,4 +82,18 @@
   $(function() {
     $('#renderArea').on('mousedown wheel touchstart', wake);
   });
+
+  // Electron (Windows): confirm() / alert() kutusundan sonra klavye odağı kaybolur ve ölçü alanlarına
+  // yazılamaz. Kutu kapanınca CONTROL penceresine bildir, o da pencereye odağı geri verdirir (plazma-tabs.js).
+  if (window.parent !== window) {
+    ['confirm', 'alert', 'prompt'].forEach(function(name) {
+      var orig = window[name];
+      if (typeof orig !== 'function') return;
+      window[name] = function() {
+        var r = orig.apply(window, arguments);
+        try { window.parent.postMessage({ plazma: 'refocus' }, '*'); } catch (e) {}
+        return r;
+      };
+    });
+  }
 })();

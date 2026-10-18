@@ -38,4 +38,33 @@
   });
 
   $(window).on('resize', sizeFrame);
+
+  // Electron (Windows) hatası: confirm() / alert() kutusu kapandıktan sonra pencere klavye odağını kaybeder,
+  // yazı alanlarına tıklansa da yazılamaz. Kutudan sonra ana süreç pencereyi blur + focus yapar (index.js
+  // 'plazmaRefocus'). CAM çerçevesindeki kutular da postMessage ile buraya bildirilir (plazma-viewer-fix.js).
+  var refocusFrame = false;
+  function refocus(frame) {
+    refocusFrame = frame;
+    if (typeof socket !== 'undefined' && socket && socket.emit) socket.emit('plazmaRefocus');
+  }
+  ['confirm', 'alert', 'prompt'].forEach(function(name) {
+    var orig = window[name];
+    if (typeof orig !== 'function') return;
+    window[name] = function() {
+      var r = orig.apply(window, arguments);
+      refocus(false);
+      return r;
+    };
+  });
+  window.addEventListener('message', function(e) {
+    if (e.origin !== new URL(CAM_URL).origin && e.origin !== 'http://127.0.0.1:3110') return;
+    if (e.data && e.data.plazma === 'refocus') refocus(true);
+  });
+  // Pencere odağı geri gelince odağı kutuyu açan çerçeveye ver
+  window.addEventListener('focus', function() {
+    if (!refocusFrame) return;
+    refocusFrame = false;
+    var fr = document.getElementById('camFrame');
+    if (fr && fr.contentWindow) fr.contentWindow.focus();
+  });
 })();

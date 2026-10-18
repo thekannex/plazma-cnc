@@ -966,6 +966,17 @@ io.on("connection", function(socket) {
     plazmaQuitApp('kapat dugmesi');
   });
 
+  // Plazma: confirm()/alert() sonrasi klavye odagi kaybolur (Electron, Windows); pencereyi blur + focus yap
+  socket.on("plazmaRefocus", function() {
+    try {
+      if (jogWindow && !jogWindow.isDestroyed()) {
+        jogWindow.blur();
+        jogWindow.focus();
+        jogWindow.webContents.focus();
+      }
+    } catch (e) {}
+  });
+
   socket.on("quit", function(data) {
     if (appIcon) {
       appIcon.destroy();
