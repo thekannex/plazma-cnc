@@ -55,6 +55,8 @@ OpenBuilds CONTROL + OpenBuilds CAM'in tek pencerede birleşmiş, FluidNC plazma
 | Kesim yönü | Toolpath penceresi → **Plazma: Kesim yönü** | Her toolpath için ayrı; yeni toolpath makine ayarındaki varsayılanla başlar. **Standart**: dış konturlar saat yönünde, delikler saat tersine (iyi kenar hareket yönünün sağında kalır). Ters girdaplı sarf için **Ters** |
 | Başlangıç noktası | Settings → Advanced → Plasma: Başlangıç Noktası | Yay lead-in açıkken delme parçanın dış köşesine, yoksa en uzun düz kenarın ortasına alınır; eğride / iç köşede giriş izi kalmaz |
 | Önce delikler | Settings → Advanced → Plasma: Önce Delikler | Aynı toolpath içinde en içteki konturlar önce, aynı seviyede en yakın kontur. Delik toolpath'i dış toolpath'ten sonraysa CAM ve CONTROL uyarır |
+| Otomatik plazma toolpath | 2. Configure Toolpaths → **Plazma: Otomatik (delikler içten, dış dıştan)** | Seçili vektörler (seçim yoksa tüm çizim) iç içeliğe göre ayrılır: delikler **path inside**, dış konturlar ve delik içindeki adalar **path outside**. Delik toolpath'i önce gelir. Ayarlar son kullanılan plazma ayarları; açık vektörler alınmaz |
+| Ofsetsiz toolpath'te lead-in | Plasma: Vector (no path offset) | Hurda tarafı konturun iç içeliğinden bulunur (dış kontur → dışarıdan, delik → içeriden giriş). Ofsetsiz kesimde parça kerf kadar küçük çıkar: ölçülü parça için path outside / inside kullanın |
 | Otomatik küçük delik | Malzeme seçiliyse | Küçük delik sınırı girilmemişse çapı < 2,5 × sac kalınlığı olan delikler yavaş kesilir |
 
 | Malzeme kütüphanesi | Şerit → Kesim Tablosu → **Malzemeler**; toolpath penceresinde **Plazma: Malzeme** | Malzeme/kalınlık seçilince kerf, hız, delme yüksekliği, delme bekleme, kesim yüksekliği ve lead-in dolar. Akım ve hava G-code'a not olarak yazılır, CONTROL çalıştırmadan önce gösterir. Tablo değişince o malzemeyi kullanan toolpath'ler güncellenir. Örnek değerler 60 A hava plazması içindir (1–15 mm siyah sac, paslanmaz, alüminyum). Kendi torç/sarf tablonuza göre düzeltin. Daha önce tabloyu kaydettiyseniz yeni örnekler için **Örnek tabloyu yükle** |
@@ -62,7 +64,9 @@ OpenBuilds CONTROL + OpenBuilds CAM'in tek pencerede birleşmiş, FluidNC plazma
 
 Yerleşim araçlarından sonra toolpath'ler ve G-code kendiliğinden yeniden hesaplanır. Hepsi **Undo** ile geri alınabilir.
 
-> Delikleri her zaman ayrı bir **Plasma: Vector (path inside)** toolpath'ine alın: dış (outside) işlem iç içe konturları da dışa ofsetler, delikler kerf kadar büyük çıkar (CAM uyarır).
+> Delikleri her zaman ayrı bir **Plasma: Vector (path inside)** toolpath'ine alın: dış (outside) işlem iç içe konturları da dışa ofsetler, delikler kerf kadar büyük çıkar (CAM uyarır). En kolayı **Plazma: Otomatik** düğmesi.
+>
+> DXF içe aktarma: ters yönlü (extrusion 0,0,-1) kaydedilmiş daire, yay ve polyline'lar (bazı sac metal programlarının delikleri) doğru yere alınır.
 
 ### CAM — Çizim ve düzenleme
 | Özellik | Nerede | Not |
