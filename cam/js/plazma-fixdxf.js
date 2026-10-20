@@ -72,6 +72,80 @@
     return n;
   };
 
+  // 4) Ters yönlü (extrusion 210/220/230 = 0,0,-1) daire, yay ve polyline'lar. Bu nesnelerin koordinatları
+  //    nesnenin kendi düzleminde (OCS) yazılır; düzlem ters bakınca X aynalanmış olur (gerçek X = -X).
+  //    Bazı CAD / sac metal programları delikleri böyle kaydeder. İçe aktarıcı bunu yok sayıyor (daire ve
+  //    yayda değeri hiç okumuyor), delikler X'te aynalanmış yere düşüyor. -> Ham DXF'ten okunup düzeltilir.
+  //    Sadece Z eksenine paralel (düz) düzlemler; eğik düzlemdeki nesneler 2B kesimde zaten anlamsız.
+  function rawExtrusions(text) {
+    var lines = String(text).split(/\r?\n/), out = [], cur = null, inEnt = false, sectionName = false;
+    for (var i = 0; i + 1 < lines.length; i += 2) {
+      var code = parseInt(lines[i], 10), val = lines[i + 1].trim();
+      if (code === 0) {
+        cur = null;
+        if (val === 'SECTION') { sectionName = true; inEnt = false; continue; }
+        if (val === 'ENDSEC' || val === 'EOF') { inEnt = false; continue; }
+        if (!inEnt || val === 'VERTEX' || val === 'SEQEND') continue; // VERTEX/SEQEND: POLYLINE'ın parçaları
+        cur = { type: val, handle: null, n: [0, 0, 1] };
+        out.push(cur);
+      } else if (code === 2 && sectionName) {
+        sectionName = false;
+        inEnt = val === 'ENTITIES';
+      } else if (cur) {
+        if (code === 5) cur.handle = val;
+        else if (code === 210) cur.n[0] = parseFloat(val);
+        else if (code === 220) cur.n[1] = parseFloat(val);
+        else if (code === 230) cur.n[2] = parseFloat(val);
+      }
+    }
+    return out;
+  }
+
+  function flipped(n) { return n && Math.abs(n[0]) < 1 / 64 && Math.abs(n[1]) < 1 / 64 && n[2] < 0; }
+
+  function mirrorEntity(e) {
+    var TAU2 = Math.PI * 2;
+    if ((e.type === 'CIRCLE' || e.type === 'ARC') && e.center) {
+      e.center.x = -e.center.x;
+      if (typeof e.startAngle === 'number' && typeof e.endAngle === 'number') {
+        // (cos t, sin t) -> (-cos t, sin t) = açı π - t; saat yönü tersine döner: başlangıç ve bitiş yer değiştirir
+        var s = Math.PI - e.endAngle, en = Math.PI - e.startAngle;
+        var len = ((en - s) % TAU2 + TAU2) % TAU2;
+        if (len < 1e-9) len = TAU2;
+        e.startAngle = s; e.endAngle = s + len; e.angleLength = len;
+      }
+      return true;
+    }
+    if ((e.type === 'LWPOLYLINE' || e.type === 'POLYLINE') && e.vertices) {
+      e.vertices.forEach(function(v) { v.x = -v.x; if (v.bulge) v.bulge = -v.bulge; });
+      return true;
+    }
+    return false;
+  }
+
+  if (window.DxfParser && window.DxfParser.prototype && typeof window.DxfParser.prototype.parseSync === 'function') {
+    var origParse = window.DxfParser.prototype.parseSync;
+    window.DxfParser.prototype.parseSync = function(text) {
+      var dxf = origParse.apply(this, arguments);
+      try {
+        var ents = dxf && dxf.entities, raw = rawExtrusions(text), byHandle = {}, n = 0;
+        if (!ents || !ents.length) return dxf;
+        raw.forEach(function(r) { if (r.handle) byHandle[r.handle] = r; });
+        var sameOrder = raw.length === ents.length && raw.every(function(r, k) { return r.type === ents[k].type; });
+        ents.forEach(function(e, k) {
+          var r = (e.handle && byHandle[e.handle]) || (sameOrder ? raw[k] : null);
+          var nn = r ? r.n : null;
+          // LWPOLYLINE / POLYLINE için ayrıştırıcının okuduğu değer de kullanılabilir
+          if (!nn && typeof e.extrusionDirectionZ === 'number') nn = [e.extrusionDirectionX || 0, e.extrusionDirectionY || 0, e.extrusionDirectionZ];
+          if (!nn && e.extrusionDirection) nn = [e.extrusionDirection.x || 0, e.extrusionDirection.y || 0, e.extrusionDirection.z];
+          if (flipped(nn) && mirrorEntity(e)) n++;
+        });
+        if (n) console.info('DXF: ' + n + ' ters yönlü (extrusion -Z) nesne düzeltildi');
+      } catch (err) { console.warn('DXF extrusion düzeltmesi yapılamadı', err); }
+      return dxf;
+    };
+  }
+
   if (typeof window.drawDXF === 'function') {
     var origDXF = window.drawDXF;
     window.drawDXF = function() {
