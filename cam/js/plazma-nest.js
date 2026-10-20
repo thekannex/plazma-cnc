@@ -487,6 +487,7 @@
     if (last && String(last.camOperation || '').indexOf('Plasma') === 0) return $.extend({}, DEFAULT_TP, last);
     return $.extend({}, DEFAULT_TP);
   }
+  NS.tpTemplate = tpTemplate; // plazma-autotp.js de kullanır
 
   function activate(idx) {
     var s = st.result && st.result.sheets[idx];

@@ -90,7 +90,8 @@
       // CAM 'outside' işlemi her konturu dışa, 'inside' içe ofsetler: kesim yönü gerçek ofsete göre
       it.hole = isIn ? true : isOut ? false : dep[i] % 2 === 1;
     });
-    if (isOut && !ud.plazmaNest && items.some(function(it) { return it.p && it.depth > 0; })) {
+    // nesting / otomatik toolpath: delikler zaten ayrıldı, iç içe kalanlar delik içindeki adalardır
+    if (isOut && !ud.plazmaNest && !ud.plazmaAuto && items.some(function(it) { return it.p && it.depth > 0; })) {
       warnOnce('nested', '<b>Dikkat:</b> Dış (outside) toolpath\'te iç içe konturlar var. Dış (outside) işlem delikleri de dışa ofsetler, delikler <b>kerf kadar büyük</b> kesilir. Delikleri ayrı bir "Plasma: Vector (path inside)" toolpath\'ine alın.');
     }
     var mirror = grp.matrixWorld && grp.matrixWorld.determinant && grp.matrixWorld.determinant() < 0 ? -1 : 1;
